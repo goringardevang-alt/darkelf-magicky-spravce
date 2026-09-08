@@ -37,7 +37,8 @@ nainstalované zvlášť, tomu poběží to jeho a přibalená kopie se nespust�
 **Kouzlení**
 - Klik na řádek nasype země do herní buňky a předvyplní kouzla do roletek.
   Odeslání zůstává na tobě, skript sám nekouzlí.
-- Spočítá orientační cenu many pro celý list i pro jednotlivé dávky.
+- Spočítá cenu many pro celý list i pro jednotlivé dávky, s alianční slevou
+  i bez ní, a po naložení ukáže, kolik ti many zbude.
 - Podle tvé SK odhadne šanci, že seslání projde.
 
 **Během kouzlení**

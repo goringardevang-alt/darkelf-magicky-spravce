@@ -6,6 +6,7 @@ a z aliančních kouzel, a předvyplní ti formulář. **Poslední klik je vždy
 - [Kde to najdeš](#kde-to-najdeš)
 - [Vložení magic listu](#vložení-magic-listu)
 - [Přehled](#přehled)
+- [Kontrola MO](#kontrola-mo)
 - [Okno s nálezy](#okno-s-nálezy)
 - [Kouzlení](#kouzlení)
 - [Během dne](#během-dne)
@@ -17,10 +18,12 @@ a z aliančních kouzel, a předvyplní ti formulář. **Poslední klik je vždy
 
 ## Kde to najdeš
 
-Otevři ve hře **Magie**. Nad herním formulářem přibude řádek
+Otevři ve hře **Magie**. Pod herním formulářem přibude řádek
 **„▸ Přehled magic listu"** — klikem se rozbalí.
 
-<!-- ![Tlačítko Přehled magic listu](obrazky/01-tlacitko.png) -->
+![Tlačítko Přehled magic listu](obrazky/01-tlacitko.png)
+
+Vedle je i tlačítko **ML**, o kterém je řeč v [Kouzlení](#kouzlení).
 
 ---
 
@@ -30,73 +33,106 @@ Vlep do pole celý list, jak ho máte v alianci — **nemusíš nic přepisovat 
 zkratek**, skript si poradí i s tím, jak to píšou ostatní. Pak dej
 **„Přechroustat"**.
 
-<!-- ![Vložení listu](obrazky/02-vlepeni.png) -->
+![Vložení listu a tlačítko Přechroustat](obrazky/02-vlepeni.png)
 
-Co se stane:
-
-- rozpozná kouzla, násobky, MO a země,
-- **dopočítá magickou obranu neutrálních zemí z mapy**, takže ji nikdo nemusí psát ručně,
-- sjednotí zápis a list zase složí,
-- co nedává smysl, ukáže v [okně s nálezy](#okno-s-nálezy).
-
-Tlačítkem **„Kopírovat zpět do ML"** dostaneš uklizený list ve zkratkách —
-ten se posílá zpátky do společného.
+Vedle jsou ještě **⟳** (načíst znovu alianční kouzla) a **✕** (smazat list
+a začít nanovo).
 
 ---
 
 ## Přehled
 
-Každý řádek je jeden požadavek: kouzlo, kolikrát, na které země, s jakou MO.
+![Přehled magic listu](obrazky/03-prehled.png)
 
-<!-- ![Přehled magic listu](obrazky/03-prehled.png) -->
+Nahoře je **datum listu**. Když nesedí s dnešním dnem, skript se ozve:
+*„ML 7.9. ⚠ dnes je 8.9. — je to včerejší list?"* Snadno se totiž stane, že
+člověk edituje včerejšek.
 
-- **Číslo v závorce u země** je magická obrana právě té země. Řádek se proto
-  nemusí štípat po jedné zemi.
-- **Barva** napovídá, jak jsi na tom se svou SK — jestli má smysl, abys to
-  sesílal ty, nebo je lepší poprosit někoho silnějšího.
-- **Cena** dole je orientační součet many za celý list. Počítají se **seslání,
-  ne země**: `2×` na čtyřech zemích je osm seslání.
-- **Klik na řádek** otevře editor — dá se změnit MO, kouzlo, počet seslání
-  i seznam zemí. Zem se dá i odebrat (dokud je editor otevřený, jde to vrátit).
+Pod tím **„řadit: priority · hráči · MO"** — tři pohledy na tentýž list.
+„Hráči" seskupí země podle majitele z mapy, takže si můžeš projet jednoho
+protivníka najednou. **Společný list se tím nemění**, je to jen zobrazení.
 
-Vpravo nahoře jsou tři pohledy na tentýž list: **priority**, **hráči**, **MO**.
-Pohled „hráči" bere majitele zemí z mapy — hodí se, když chceš projet jednoho
-protivníka najednou. Společný list se tím nemění.
+![Řazení podle hráčů](obrazky/07-pohledy.png)
 
-<!-- ![Přepínače pohledů](obrazky/07-pohledy.png) -->
+### Řádky
+
+Každý řádek je jeden požadavek: kouzlo, kolikrát, na kolik zemí a za kolik.
+
+- **`Nespo 2× MO5 · 1 zemí · 80`** — dvakrát nespo na zem s magickou obranou 5.
+- **Barevný proužek vlevo** ukazuje, jakou máš šanci to prokouzlit se svou SK.
+- **Cena je rozsah** (`156–240`), protože se u některých kouzel počítá
+  s **alianční slevou** — nižší číslo je s ní, vyšší bez.
+- **Klik na řádek** (ne na počet zemí) otevře editor: MO, kouzlo, počet seslání
+  i jednotlivé země. Zem se dá odebrat a dokud je editor otevřený, jde to vrátit.
+
+### Souhrn
+
+**`Sesláno 3/59 · zbývá 56 · 2 312–2 480 many`**
+
+Je to postup **v tomhle listu**, ne tvůj denní limit: 3 seslání z 59 jsou hotová,
+56 zbývá. **Cena je jen za to, co zbývá** — co je v Zakouzleno, se už nepočítá.
+
+Počítají se **seslání, ne země**: `2×` na čtyřech zemích je osm seslání.
+
+Úplně dole je uklizený list ve zkratkách a tlačítko **„Kopírovat zpět do ML"** —
+ten se posílá zpátky do společného.
+
+---
+
+## Kontrola MO
+
+Skript **dopočítá magickou obranu neutrálních zemí z mapy**, takže ji nikdo
+nemusí psát ručně. Když se to, co spočítal, rozchází s listem, nabídne opravu:
+
+> **Kontrola MO: 25 sedí · 9 NESEDÍ**
+> ☑ Hadí pláně MO(0→5)
+> ☑ Citadela Temnoty MO(0→5)
+
+Zápis **`MO(0→5)`** znamená „v listu je 0, podle mapy je to 5". Číslo vedle
+zaškrtávátka se dá přepsat, když víš líp. Pak **„Přepsat MO u zaškrtnutých"**.
+
+**U hráčských zemí je dopočet nespolehlivý** — tam má list přednost, a proto se
+nic nepřepisuje samo.
 
 ---
 
 ## Okno s nálezy
 
-Sem jde všechno, co je potřeba rozhodnout nebo opravit.
+Otevřeš ho řádkem **„⚠ 2 věci čekají na rozhodnutí — otevřít"**.
 
-<!-- ![Okno s nálezy](obrazky/04-nalezy.png) -->
+![Okno s nálezy](obrazky/04-nalezy.png)
+
+**Otázky** — když ve štítku zbyde text, skript se zeptá, jestli je to jméno
+hráče, nebo poznámka. U čísla řádku vidíš, čeho se to týká. Když všechny země
+toho řádku patří jednomu hráči, nabídne ho v roletce.
+
+> Jméno hráče se z listu **zahazuje**, poznámka u řádku **zůstane**.
+
+Odpověď si pamatuje; zapomenout ji jde odkazem **„zapomenout uložená rozhodnutí"**.
 
 **Chyby zápisu** — chybějící čárka, kouzlo, které nepoznal, zem, která na mapě
-není. Skript to **neopravuje sám a nepamatuje si to** — jen řekne, kde to je.
-
-**Otázky** — když ve štítku zbyde text, zeptá se, jestli je to **jméno hráče**,
-nebo **poznámka**. Když všechny země toho řádku patří jednomu hráči, nabídne ho
-jako odpověď. Rozhodnutí si zapamatuje; zapomenout je jde odkazem dole.
-
-**Kontrola MO** — MO napsaná v listu nesedí s tím, co vidí na mapě.
-Zaškrtneš, co se má přepsat, a dáš **„Přepsat MO u zaškrtnutých"**.
-U hráčských zemí je dopočet nespolehlivý, tam má list přednost.
+není. Skript to **neopravuje sám** — jen řekne, kde to je. Přidat jednu čárku
+ručně je míň práce než tomu věřit.
 
 **Poslali totéž** — stejné kouzlo na tutéž zem od více lidí. U nespo to bývá
 záměr (skládá se), u ostatních většinou ne.
 
-**Škály** — na zem už letí něco, co dělá totéž. Pak nemá smysl posílat plný počet.
+**Škály** — na zem už letí něco, co dělá totéž, takže nemá smysl posílat plný
+počet.
 
 ---
 
 ## Kouzlení
 
-Klik na počet zemí u řádku **naloží dávku do herního formuláře**: kouzlo do
+Klik na **počet zemí** u řádku naloží dávku do herního formuláře: kouzlo do
 roletek K1…K5 (kolikrát, tolik roletek) a země do herní buňky.
 
-<!-- ![Naložení do kouzlení](obrazky/05-kouzleni.png) -->
+![Naložení dávky do kouzlení](obrazky/05-kouzleni.png)
+
+Nahoře pak uvidíš, co se naložilo a co tě to bude stát:
+
+> **Naloženo: spoko · 3 zemí · 156 many — zbude 2 930**
+> Zkontroluj a dej „Seslat na napsané země"
 
 **Odeslat musíš sám herním tlačítkem.** Skript na ně nesahá, takže se přes něj
 nedá omylem zakouzlit.
@@ -109,15 +145,14 @@ požadavek do listu — ať to nemusíš psát dvakrát. Nabídne se ti to k pot
 ## Během dne
 
 Tlačítkem **⟳** si skript načte znovu alianční kouzla a porovná je s listem.
-
-<!-- ![Po zakouzlení](obrazky/06-po-zakouzleni.png) -->
+Pod souhrnem pak vidíš **„Aliance: 15 seslání"** a **„Přesunuto: 3 do Zakouzleno"**.
 
 - Co je hotové, přesune do **Zakouzleno**.
 - Co neprošlo, nechá v plánu **i s důvodem** — buď síla nesplnila MO z listu,
-  nebo podle mapy se to odrazilo.
+  nebo se to podle mapy odrazilo.
 - Hlídá násobky: `2×nespo` s jedním sesláním **není hotovo**.
 - Jedno seslání zaplatí **jen jeden řádek**. Když máš tutéž zem ve dvou
-  prioritách (první nespo povinné, druhé když vyjde mana), zakouzlením jednou
+  prioritách (první nespo povinné, druhé když vyjde mana), po jednom zakouzlení
   ti ta druhá zůstane v plánu — správně.
 
 Odkazem **„↩ vrátit do plánu"** jde přesun vzít zpátky.
@@ -126,7 +161,10 @@ Odkazem **„↩ vrátit do plánu"** jde přesun vzít zpátky.
 
 ## Kategorie
 
-Pořadí je pevné, nadpis se ukáže jen tam, kde něco je:
+Pořadí je pevné a nadpis se ukáže jen tam, kde něco je. **Zakouzleno je
+zašedlé** — hotová práce nemá tahat oči.
+
+![Sekce Zakouzleno](obrazky/06-po-zakouzleni.png)
 
 | Kategorie | K čemu |
 |---|---|
@@ -135,12 +173,13 @@ Pořadí je pevné, nadpis se ukáže jen tam, kde něco je:
 | **Pro jistotu překouzlit s max SK** | jen řádky, které si výslovně řekly o nejsilnější seslání (`_SKmax`) a dostaly slabý hod. Je to kategorie **na zbytek many** |
 | **Zakouzleno** | hotovo |
 
+Sekce se dá psát i malým písmem (`zakouzleno:`), skript si poradí.
+
 ---
 
 ## Jak psát magic list
 
-Skript si poradí s tím, jak píšou lidi, ale tohle je zápis, do kterého to
-sjednotí — a který se hodí znát:
+Skript si poradí s tím, jak píšou lidi. Tohle je zápis, do kterého to sjednotí:
 
 | Zápis | Znamená |
 |---|---|
@@ -152,11 +191,10 @@ sjednotí — a který se hodí znát:
 | `nespo_neu: Alfa` | neobsazená zem, které se MO **nepodařilo** spočítat — zjisti si ji sám |
 | `nespo_SKmax: Alfa` | tohle chce **nejsilnější seslání, co aliance má** |
 | `! nespo: Alfa` | nejvyšší priorita |
-| `spoko OMV: Alfa` | zkratka věže místo čísla (`OSV`, `MMV`, `OMV`) |
+| `spoko OMV: Alfa` | zkratka věže místo čísla (`OSV` 5, `MMV` 20, `OMV` 50) |
 
 Fungují i volnější zápisy — `2x nespo`, `SmD2x`, `nespo MO 10+`, `Dvojnespo`,
-země napsané před kouzlem i za ním. Nadpisy sekcí (`Prio 1:`, `Zakouzleno:`)
-se berou tak, jak jsou, i malým písmem.
+země napsané před kouzlem i za ním, dvojité mezery za čárkami.
 
 Slovo **„neutrálka"** napsané ručně se zahodí — skript si neobsazenost ověří
 z mapy sám a MO dopočítá.
@@ -166,10 +204,10 @@ z mapy sám a MO dopočítá.
 ## Co skript neumí
 
 - **Nekouzlí sám** a nesahá na herní tlačítko odeslání.
-- **Nepamatuje si nic přes přepočet.** Porovnává list s tím, co aliance
-  seslala **dneska** — bere to z aliančního seznamu kouzel, který se o půlnoci
-  vynuluje. Zpětně nic nedohledá; druhý den se začíná nanovo.
+- **Nepamatuje si nic přes přepočet.** Porovnává list s tím, co aliance seslala
+  **dneska** — bere to z aliančního seznamu kouzel, který se o půlnoci vynuluje.
+  Zpětně nic nedohledá; druhý den se začíná nanovo.
 - **Neopravuje chyby zápisu sám** — jen ukáže, kde jsou.
 - **U hráčských zemí je dopočet MO nespolehlivý.** Tam platí, co je v listu.
-- **Manu nehlídá.** Cena je jen orientační součet; kolik jí máš, si musíš
-  ohlídat sám.
+- **Nevidí manu ostatních**, jen jejich zbývající kouzla. Tvoji vlastní manu zná
+  a po naložení dávky ti ukáže, kolik zbude.
