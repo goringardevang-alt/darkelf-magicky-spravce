@@ -13,6 +13,8 @@ přepsala a hodně rozšířila.
 2. Klikni na **[darkelf-magicky-spravce.user.js](https://raw.githubusercontent.com/goringardevang-alt/darkelf-magicky-spravce/main/darkelf-magicky-spravce.user.js)** — Tampermonkey nabídne instalaci.
 3. Otevři ve hře **Magie**.
 
+**[Podrobný návod s obrázky](NAVOD.md)** — co která část dělá a jak psát magic list.
+
 Nic dalšího není potřeba. Jádro (Core Utils) je uvnitř souboru; kdo ho má
 nainstalované zvlášť, tomu poběží to jeho a přibalená kopie se nespustí.
 
@@ -38,11 +40,14 @@ nainstalované zvlášť, tomu poběží to jeho a přibalená kopie se nespust�
 - Spočítá orientační cenu many pro celý list i pro jednotlivé dávky.
 - Podle tvé SK odhadne šanci, že seslání projde.
 
-**Po přepočtu**
-- Porovná list s tím, co aliance opravdu seslala.
+**Během kouzlení**
+- Porovná list s tím, co aliance seslala **dneska** — čte alianční seznam kouzel,
+  takže je to živé, ne až po přepočtu.
 - Hotové přesune do „Zakouzleno", nedodělané nechá v plánu i s důvodem.
 - Hlídá násobky (`2×nespo` s jedním sesláním není hotovo) a započítá, co na zem
   už letí od ostatních.
+- Přes půlnoc si **nepamatuje nic** — seznam se přepočtem vynuluje a druhý den
+  se začíná nanovo.
 
 ## Něco nefunguje?
 
