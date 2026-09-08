@@ -23,7 +23,8 @@ Otevři ve hře **Magie**. Pod herním formulářem přibude řádek
 
 ![Tlačítko Přehled magic listu](obrazky/01-tlacitko.png)
 
-Vedle je i tlačítko **ML**, o kterém je řeč v [Kouzlení](#kouzlení).
+Nad ním přibude tlačítko **ML** a vedle něj políčko **MO** — to je opačný směr,
+z formuláře do listu, a je popsaný v [Z formuláře do listu](#z-formuláře-do-listu).
 
 ---
 
@@ -124,21 +125,61 @@ počet.
 
 ## Kouzlení
 
+### Z listu do formuláře
+
 Klik na **počet zemí** u řádku naloží dávku do herního formuláře: kouzlo do
 roletek K1…K5 (kolikrát, tolik roletek) a země do herní buňky.
 
 ![Naložení dávky do kouzlení](obrazky/05-kouzleni.png)
 
-Nahoře pak uvidíš, co se naložilo a co tě to bude stát:
+Pod tlačítky pak uvidíš, co se naložilo a co tě to bude stát:
 
-> **Naloženo: spoko · 3 zemí · 156 many — zbude 2 930**
+> **Naloženo: spoko · 3 zemí · 156 many · zbude 2 930**
 > Zkontroluj a dej „Seslat na napsané země"
+
+Ten řádek **žije** — mění se, jak přehazuješ roletky nebo dopisuješ země, i když
+to naklikáš ručně bez skriptu. Když by dávka byla nad tvoje možnosti, ozve se:
+**„⚠ Na tohle nemáš manu."**
 
 **Odeslat musíš sám herním tlačítkem.** Skript na ně nesahá, takže se přes něj
 nedá omylem zakouzlit.
 
-Opačným směrem: když si kouzla naklikáš ručně, tlačítkem **ML** je načteš jako
-požadavek do listu — ať to nemusíš psát dvakrát. Nabídne se ti to k potvrzení.
+### Z formuláře do listu
+
+Opačný směr. Když si kouzla naklikáš rovnou ve hře, nemusíš totéž psát ještě
+do listu — udělá to za tebe tlačítko **ML** pod „Seslat na napsané země".
+
+Vezme, co je v roletkách K1…K5 a v herní buňce, a **rozdělí země podle jejich
+magické obrany**. Když má pět zemí tři různé MO, vzniknou tři řádky — každý se
+svou hodnotou, ne jeden společný průměr.
+
+Pak se rozbalí nabídka ke schválení:
+
+> **Z formuláře — přidat do ML:**
+> do kategorie [ Prio 1 ▾ ]
+> ☑ spoko 2× · 3 zemí  [ 20 ]
+> ☑ spoko 2× · 1 zem   [ 55 ]
+> **[ Přidat do ML ]**
+
+- **Kategorie** si vybereš z roletky (výchozí je Prio 1).
+- **Zaškrtávátkem** řádek vynecháš — hodí se, když jsi něco naklikal jen na zkoušku.
+- **Číslo vpravo** je MO, která se zapíše do listu. Je předvyplněná z mapy a dá
+  se přepsat; **prázdné pole = bez MO**, tedy požadavek 0.
+- Najetím myší na řádek se ukáže, o které země jde.
+
+Do listu se to zapíše až tlačítkem **„Přidat do ML"**.
+
+### Políčko MO vedle tlačítka
+
+Malé políčko hned za **ML** zkracuje cestu:
+
+| Políčko | Co se stane |
+|---|---|
+| **prázdné** | MO se dopočítá z mapy a nabídne se ti ke kontrole (postup výš) |
+| **číslo** | řádky se s tou MO vloží do listu **rovnou, bez schvalování** |
+
+Číslo se použije **pro všechny napsané země najednou**, takže se hodí, když
+víš, že jsou na tom stejně — jinak nech políčko prázdné a nech si země rozdělit.
 
 ---
 
