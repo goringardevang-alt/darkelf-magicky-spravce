@@ -35,20 +35,30 @@ nainstalované zvlášť, tomu poběží to jeho a přibalená kopie se nespust�
 - U hráčských zemí bere list jako nadřazený — tam je dopočet nespolehlivý.
 
 **Kouzlení**
-- Klik na řádek nasype země do herní buňky a předvyplní kouzla do roletek.
-  Odeslání zůstává na tobě, skript sám nekouzlí.
+- Klik na řádek nasype země do herní buňky, předvyplní kouzla do roletek
+  a zaškrtne ty země na mapě. Odeslání zůstává na tobě, skript sám nekouzlí.
+- Řádky téhož kouzla se dají **sčítat** — naklikáš jich několik a pojedou jednou
+  dávkou. Co si odklikneš na mapě, z dávky vypadne a v listu zůstane nezakouzlené.
 - Opačně taky: co naklikáš ve hře, načte tlačítkem **ML** zpátky do listu —
   a rozdělí země podle jejich magické obrany.
 - Spočítá cenu many pro celý list i pro jednotlivé dávky, s alianční slevou
   i bez ní, a po naložení ukáže, kolik ti many zbude.
 - Podle tvé SK odhadne šanci, že seslání projde.
 
+**Kouzlení na hráče**
+- Když do listu vlepíš soupisku protivníků z alianční stránky, rozdělí skript
+  jejich země podle magické obrany na dávky, ze kterých se dá rovnou kouzlit.
+- Země, kam jde útok, i ty, na kterých už dnes něco prošlo, vynechá.
+- Po zakouzlení dopíše k hráči, co kdo seslal.
+
 **Během kouzlení**
 - Porovná list s tím, co aliance seslala **dneska** — čte alianční seznam kouzel,
   takže je to živé, ne až po přepočtu.
 - Hotové přesune do „Zakouzleno", nedodělané nechá v plánu i s důvodem.
 - Hlídá násobky (`2×nespo` s jedním sesláním není hotovo) a započítá, co na zem
-  už letí od ostatních.
+  už letí od ostatních. Rozdělanou práci napíše do listu jako `(1 ze 2)`.
+- Co nejde opravit hned, jde **odložit do půlnoci** — zmizí to z cesty, ale
+  neztratí se a dá se to vrátit.
 - Přes půlnoc si **nepamatuje nic** — seznam se přepočtem vynuluje a druhý den
   se začíná nanovo.
 
