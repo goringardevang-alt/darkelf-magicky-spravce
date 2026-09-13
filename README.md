@@ -48,8 +48,12 @@ nainstalované zvlášť, tomu poběží to jeho a přibalená kopie se nespust�
 **Kouzlení na hráče**
 - Když do listu vlepíš soupisku protivníků z alianční stránky, rozdělí skript
   jejich země podle magické obrany na dávky, ze kterých se dá rovnou kouzlit.
+- Napřed jdou **nulky** — země bez vojska, kde se kouzlí na jistotu — a teprve
+  za nimi ty, ve kterých vojsko stojí a obrana je jen dolní mez.
 - Země, kam jde útok, i ty, na kterých už dnes něco prošlo, vynechá.
-- Po zakouzlení dopíše k hráči, co kdo seslal.
+- Po zakouzlení dopíše k hráči, co kdo seslal a **kam to letělo**:
+  `nespo, krupky nulky by Gorin · K by Kaprik (chybí 1 z 4)`.
+  Žádná závorka na konci znamená hotovo.
 
 **Během kouzlení**
 - Porovná list s tím, co aliance seslala **dneska** — čte alianční seznam kouzel,

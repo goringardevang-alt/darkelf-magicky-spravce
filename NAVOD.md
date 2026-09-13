@@ -267,6 +267,9 @@ Klik na hráče rozbalí jeho země z mapy, rozdělené **podle magické obrany*
   ze soupisky se nedá poznat, co na kterou zem chceš poslat.
 - **`MO20+`** s plusem znamená odhad: víš, že obrana je aspoň tolik, ale vojsko
   ji může zvednout. Bez plusu je hodnota změřená.
+- **Napřed jdou všechny dávky bez plusu** (nulky — země, kde nestojí žádné
+  vojsko), pak teprve ty s plusem. Mezi bloky je v okně silnější čára. Uvnitř
+  bloku se řadí od nejmenší obrany.
 - **Země, kam jde útok** (mezi lomítky), se do dávek nepočítají.
 - **Země, na kterou dnes už něco prošlo, se nenaloží** a je ve výpisu
   přeškrtnutá i s tím, kdo na ni co hodil. Odražené seslání se za hotovou práci
@@ -281,12 +284,30 @@ takže je u toho jen ✗.
 Po zakouzlení se hráči **dopíše do poznámky**, co kdo odvedl:
 
 ```
-Donzo - 33 - // - krupky MO0, MO50 by Gorin
-konikPD - 15 - /Arratan,…/ - nespa od Kaprika · krupky MO0 (chybí Kutov) by Gorin
+Donzo - 33 - // - krupky nulky by Gorin (chybí 12 z 15)
+konikPD - 15 - /Arratan,…/ - nespa od Kaprika · nespo, K plošně by Gorin
+zofrik2 - 15 - // - nespo, krupky nulky by Gorin · K by Kaprik (chybí 1 z 4)
 ```
 
-`(chybí …)` jsou země, které ze své dávky kouzlo nedostaly. Odražená seslání se
-nepropisují. Ruční text aliance zůstává vlevo, oddělený tečkou.
+Kusy jsou **po lidech**, uvnitř kouzla. Kdo odvedl totéž, stojí za jedním `by`.
+
+Slovo mezi kouzly a `by` říká, **kam to ten člověk poslal**:
+
+- **`nulky`** — všechno od něj padlo do zemí bez vojska,
+- **`plošně`** — sám pokryl všechny země, na které se u toho hráče smí kouzlit,
+- **nic** — kouzlil i jinam než do nulek, ale ne všude.
+
+Závorka je **jedna na celý řádek** a počítá se společně za všechna kouzla —
+krupky i kletba se berou jako „něco tam letělo". Jmenovatel se řídí tím
+nejširším sesláním: stačí jedno kouzlo mimo nulky a měří se proti všem zemím,
+jinak proti nulkám. Obojí bez zemí, kam jde útok, a bez těch, kam šlo žluté
+kouzlo.
+
+**Když nechybí nic, závorka tam není.** To je ta odpověď, kterou chceš vidět
+na první pohled.
+
+Odražená seslání se nepropisují. Ruční text aliance zůstává vlevo, oddělený
+tečkou — a nesmaže se ani tehdy, když začíná názvem kouzla.
 
 ---
 
