@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Dark Elf - Magický správce
 // @namespace    https://github.com/goringardevang-alt/darkelf-magicky-spravce
-// @version      1.36
+// @version      1.37
 // @description  Magic list pro darkelf.cz: přečte ho, zkontroluje MO a šance podle tvé SK, naloží dávku do kouzlení, spočítá manu a hlídá, co se doopravdy seslalo. Vše v jednom souboru.
 // @author       Gorin & Claude Opus 5 (základ: Noxtrip)
 // @match        *://*.darkelf.cz/*
@@ -13,7 +13,7 @@
 // ==/UserScript==
 
 // ─────────────────────────────────────────────────────────────
-// Dark Elf - Magický správce v1.36   (Core Utils v2.30 uvnitř)
+// Dark Elf - Magický správce v1.37   (Core Utils v2.30 uvnitř)
 //
 // Základ: magický skript od Noxtripa.
 // Přepsal a rozšířil Claude Opus 5 ve spolupráci s Gorinem.
@@ -5504,17 +5504,32 @@ if (!window.DarkElfUtils) {
                 const tr = document.createElement("tr");
 
                 const tdM = document.createElement("td");
-                tdM.style.cssText = "width:42%;vertical-align:top;padding:2px 4px 2px 0;"
+                tdM.style.cssText = "width:28%;vertical-align:top;padding:2px 4px 2px 0;"
                     + "white-space:nowrap;" + okraj;
 
                 const kolik = sk.kNalozeni.length;
                 const hlavni = document.createElement(kolik ? "a" : "span");
-                hlavni.style.cssText = "color:" + (kolik ? "#ddd" : "#777") + ";text-decoration:none;";
-                hlavni.textContent = sk.klic + " · " + kolik + " z " + sk.zeme.length;
+                hlavni.style.cssText = "display:block;text-decoration:none;color:"
+                    + (kolik ? "#ddd" : "#777") + ";";
+
+                const klic = document.createElement("span");
+                klic.style.cssText = "display:block;"
+                    + (kolik ? "text-decoration:underline dotted;" : "");
+                klic.textContent = sk.klic;
+                hlavni.appendChild(klic);
+
+                hlavni.appendChild(document.createTextNode(" "));
+
+                const pocet = document.createElement("span");
+                pocet.style.cssText = "display:block;font-size:11px;color:"
+                    + (kolik ? "#999" : "#666") + ";";
+                pocet.textContent = kolik + " z " + sk.zeme.length;
+                hlavni.appendChild(pocet);
+
                 if (kolik) {
                     hlavni.href = "#";
                     hlavni.setAttribute("data-akce", "davka");
-                    hlavni.style.cssText += "text-decoration:underline dotted;cursor:pointer;";
+                    hlavni.style.cssText += "cursor:pointer;";
                     hlavni.title = "Naloží " + kolik + " zemí do herní buňky. "
                         + "Kouzlo si vyber v roletce K1…K5 sám.";
                     hlavni.onclick = (ev) => {
