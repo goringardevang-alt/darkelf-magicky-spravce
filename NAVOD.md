@@ -91,7 +91,9 @@ nemusí psát ručně. Když se to, co spočítal, rozchází s listem, nabídne
 > ☑ Citadela Temnoty MO(0→5)
 
 Zápis **`MO(0→5)`** znamená „v listu je 0, podle mapy je to 5". Číslo vedle
-zaškrtávátka se dá přepsat, když víš líp. Pak **„Přepsat MO u zaškrtnutých"**.
+zaškrtávátka se dá přepsat, když víš líp. Pak **„Použít u zaškrtnutých"** —
+totéž tlačítko přepíše i kouzlo a počet seslání, takže se všechno vyřídí jedním
+klikem. Bez zaškrtnutí se na něm píše **„Použít u celého řádku"**.
 
 **U hráčských zemí je dopočet nespolehlivý** — tam má list přednost, a proto se
 nic nepřepisuje samo.
@@ -100,9 +102,10 @@ nic nepřepisuje samo.
 
 ## Okno s nálezy
 
-Otevřeš ho řádkem **„⚠ 2 věci čekají na rozhodnutí — otevřít"**. Vyskočí i samo,
-když nálezů přibude — ale jen tehdy, **když máš otevřenou Magii**. Jakmile z ní
-odejdeš, zavře se; nemá smysl, aby na tebe okno mluvilo o listu, který nevidíš.
+Otevřeš ho řádkem **„⚠ 2 věci čekají na vyřízení — otevřít"**. Sám vyskočí
+**jen po Přechroustat** — když ho zavřeš, zůstane zavřené a neotvírá se znovu
+při každém novém nálezu. Žije jen s **otevřenou Magií**: jakmile z ní odejdeš,
+zavře se, protože nemá smysl mluvit o listu, který nevidíš.
 
 ### Fajfka, křížek, ignorovat
 
@@ -115,8 +118,14 @@ Každý řádek má vpravo dvě značky:
 
 **✓ je jen tam, kde je oprava jednoznačná.** Informativní řádky (neprošlo,
 poslali totéž, škály) mají jen ✗ — u nich není co odklikat za tebe. U sporu na
-škále fajfka schválně chybí: má pod sebou dvě pojmenované volby a jediné
-tlačítko, které by jednu z nich vybralo, je přesně to, čím se dá omylem zakouzlit.
+škále fajfka schválně chybí: má pod sebou pojmenované volby a jediné tlačítko,
+které by jednu z nich vybralo, je přesně to, čím se dá omylem zakouzlit.
+
+Když na zem už letí část toho, co si řádek vyžádal, nabídne okno pod hláškou
+**až tři volby**: levnější náhradu (`K (100)`, `krupky + vír (100)`), **zmenšení
+počtu seslání**, a když už není co kouzlit, **smazání země z řádku**. Poslední je
+vždycky **nechat, jak je** — tím se hláška schová do půlnoci. Klik sáhne jen na
+tu jednu zem; MO, priorita i požadavek na sílu zůstanou.
 
 Když je ve skupině víc řádků, je v jejím nadpisu **„✓ vše"** — platí jen pro tu
 skupinu, ne pro celé okno.
@@ -181,6 +190,10 @@ takže by dvojka spadla i na země z jednonásobného řádku.
 Země si můžeš ubrat i **přímo na mapě** — co tam odklikneš, zmizí z dávky
 a dalším klikem se nevrátí. **V magic listu ta zem zůstane** jako nezakouzlená;
 naložení je jen příprava formuláře, do listu nesahá.
+
+> ⚠ Hra má jen **pět roletek**, takže `7×nespo` se naloží pětkrát a skript to
+> řekne: *„Naloženo 5× z 7× — hra má jen pět roletek. Zbytek zůstane v ML."*
+> Zbylá dvě seslání se neztratí, řádek prostě zůstane nedodělaný.
 
 > ⚠ Zem, kterou hra nezná (překlep v listu), **zablokuje celé seslání** — hra
 > na první nenalezené jméno nepošle nic. Skript proto varuje předem:
@@ -263,17 +276,25 @@ Klik na hráče rozbalí jeho země z mapy, rozdělené **podle magické obrany*
   MO20+ · 3 z 3     Elfí přístavy, …
 ```
 
-- **Klik na dávku** naloží ty země do formuláře. **Kouzlo si vybereš sám** —
-  ze soupisky se nedá poznat, co na kterou zem chceš poslat.
+- **Klik na dávku** ji přidá do výběru a naloží do formuláře. **Kouzlo si
+  vybereš sám** — ze soupisky se nedá poznat, co na kterou zem chceš poslat.
+- **Dávky se sčítají**: naklikáš `MO0` + `MO20` i `MO50+` a pošleš je jedním
+  sesláním. Vybrané mají ✓, druhý klik dávku zase odebere a nad seznamem je
+  **„označit vše"**. Výběr u hráče a dávka z řádků listu se navzájem ruší —
+  formulář má jednu sadu zemí.
 - **`MO20+`** s plusem znamená odhad: víš, že obrana je aspoň tolik, ale vojsko
   ji může zvednout. Bez plusu je hodnota změřená.
 - **Napřed jdou všechny dávky bez plusu** (nulky — země, kde nestojí žádné
   vojsko), pak teprve ty s plusem. Mezi bloky je v okně silnější čára. Uvnitř
   bloku se řadí od nejmenší obrany.
 - **Země, kam jde útok** (mezi lomítky), se do dávek nepočítají.
-- **Země, na kterou dnes už něco prošlo, se nenaloží** a je ve výpisu
-  přeškrtnutá i s tím, kdo na ni co hodil. Odražené seslání se za hotovou práci
-  nepočítá — ta zem v dávce zůstává a je oranžová.
+- **Země, na kterou dnes už něco prošlo, se nenaloží a ve výpisu není** — ať
+  seznam neroste přes celou obrazovku. Zůstane v počtu `8 z 24` a **klik na ten
+  počet ty hotové naloží do buňky ke KONTROLE**; skript u toho upozorní, že se
+  na ně nemá kouzlit znovu.
+- Odražené seslání se za hotovou práci nepočítá — ta zem v dávce **zůstává**
+  a je oranžová. Žlutě je zem, kam letí naše žluté kouzlo: tam se z kouzlení na
+  hráče nekouzlí nic.
 - Najetím na zem se ukáže **jaká je na ní věž**. Magická centra se podle síly
   vojska poznat nedají, takže si je musíš vytipovat sám.
 
@@ -342,7 +363,7 @@ zašedlé** — hotová práce nemá tahat oči.
 |---|---|
 | **Top prio** | řádek s `!` — jde nahoru |
 | **Prio 1 – Prio 3** | běžná práce podle důležitosti |
-| **Pro jistotu překouzlit s max SK** | jen řádky, které si výslovně řekly o silné seslání (`_SKmax` nebo `_SK39+`) a dostaly slabý hod. Je to kategorie **na zbytek many** |
+| **Pro jistotu překouzlit s max SK** | jen řádky s `_SKmax`, které dostaly slabý hod. Je to kategorie **na zbytek many**. `_SK39+` sem nepatří: to je tvrdý práh, a co ho nesplní, se vrací do plánu |
 | **Zakouzleno** | hotovo |
 
 Sekce se dá psát i malým písmem (`zakouzleno:`), skript si poradí.
@@ -362,13 +383,13 @@ Skript si poradí s tím, jak píšou lidi. Tohle je zápis, do kterého to sjed
 | `nespo: Alfa (57),Beta (58)` | MO zvlášť pro každou zem |
 | `nespo_neu: Alfa` | neobsazená zem, které se MO **nepodařilo** spočítat — zjisti si ji sám |
 | `nespo_SKmax: Alfa` | tohle chce **nejsilnější seslání, co aliance má** |
-| `Požeh_SK39+: Alfa` | sešli to **silou aspoň 39** — totéž, jen s číslem místo „co nejvíc". Čte se i `SK39`, `sk 39+` |
+| `Požeh_SK39+: Alfa` | sešli to **silou aspoň 39** — totéž, jen s číslem místo „co nejvíc". Čte se i `SK39`, `sk 39+`, `SK 39-50` (horní mez se zahodí). Kdo práh nesplní, vrací se do plánu |
 | `2×nespo (1 ze 2): Alfa` | z dvojitého seslání je hotové jedno. **Píše to skript sám**, ty to psát nemusíš |
 | `! nespo: Alfa` | nejvyšší priorita |
 | `spoko OMV: Alfa` | zkratka věže místo čísla (`OSV` 5, `MMV` 20, `OMV` 50) |
 
 Fungují i volnější zápisy — `2x nespo`, `SmD2x`, `nespo MO 10+`, `Dvojnespo`,
-země napsané před kouzlem i za ním, dvojité mezery za čárkami.
+`3 SmD`, `2+ SmD`, země napsané před kouzlem i za ním, dvojité mezery za čárkami.
 
 Slovo **„neutrálka"** napsané ručně se zahodí — skript si neobsazenost ověří
 z mapy sám a MO dopočítá.
