@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Dark Elf - Magický správce
 // @namespace    https://github.com/goringardevang-alt/darkelf-magicky-spravce
-// @version      1.45
+// @version      1.55
 // @description  Magic list pro darkelf.cz: přečte ho, zkontroluje MO a šance podle tvé SK, naloží dávku do kouzlení, spočítá manu a hlídá, co se doopravdy seslalo. Vše v jednom souboru.
 // @author       Gorin & Claude Opus 5 (základ: Noxtrip)
 // @match        *://*.darkelf.cz/*
@@ -13,7 +13,7 @@
 // ==/UserScript==
 
 // ─────────────────────────────────────────────────────────────
-// Dark Elf - Magický správce v1.45   (Core Utils v2.33 uvnitř)
+// Dark Elf - Magický správce v1.55   (Core Utils v2.41 uvnitř)
 //
 // Základ: magický skript od Noxtripa.
 // Přepsal a rozšířil Claude Opus 5 ve spolupráci s Gorinem.
@@ -65,7 +65,10 @@ if (!window.DarkElfUtils) {
                 try {
                     const raw = sessionStorage.getItem(klicCache);
                     const ulozene = raw ? JSON.parse(raw) : null;
-                    if (ulozene && (Date.now() - ulozene.t) < ttlSekund * 1000) {
+                    const P = window.DarkElfUtils.Prihlaseni;
+                    const p = (P && P.precti()) || {};
+                    const prihlasen = Math.max(p.ts || 0, p.tsId || 0, p.tsCizi || 0);
+                    if (ulozene && ulozene.t >= prihlasen && (Date.now() - ulozene.t) < ttlSekund * 1000) {
                         const konecCache = window.DarkElfUtils.Mereni.usek('z cache ' + url);
                         const doc = new DOMParser().parseFromString(ulozene.html, 'text/html');
                         konecCache();
@@ -116,6 +119,7 @@ if (!window.DarkElfUtils) {
 
             set: function(namespace, identifier, value, expiresAt) {
                 const key = this._buildKey(namespace, identifier);
+                this._zapomen(namespace, identifier);
                 try {
                     if (value === null || value === undefined) {
                         localStorage.removeItem(key);
@@ -154,6 +158,7 @@ if (!window.DarkElfUtils) {
             },
 
             _uklidProsle: function() {
+                this._zapomen();
                 const ted = Date.now();
                 let smazano = 0;
                 this._klice().forEach(k => {
@@ -164,6 +169,7 @@ if (!window.DarkElfUtils) {
             },
 
             _uklidCiziLigy: function() {
+                this._zapomen();
                 const liga = window.DarkElfUtils.getLeague() || 'ALL';
                 const vlastni = 'DE_CACHE_' + liga + '_';
                 let smazano = 0;
@@ -185,9 +191,34 @@ if (!window.DarkElfUtils) {
                     localStorage.setItem('de_cache_uklid', dnes);
                 } catch (e) {  }
             },
+
+            _PAMATOVAT: { api_map_json: true, api_treaties_json: true },
+            _pamet: {},
+
+            _zapomen: function(namespace, identifier) {
+                if (namespace === undefined) this._pamet = {};
+                else delete this._pamet[namespace + '_' + identifier];
+            },
+
             get: function(namespace, identifier) {
                 const key = this._buildKey(namespace, identifier);
+                const pametKlic = namespace + '_' + identifier;
+                const pamatovat = this._PAMATOVAT[pametKlic] === true;
+                let p = pamatovat ? this._pamet[pametKlic] : null;
+                if (p && (p.key !== key || Date.now() > p.expires)) {
+                    delete this._pamet[pametKlic];
+                    p = null;
+                }
+                if (p && p.overeno) return p.data;
+
                 const raw = localStorage.getItem(key);
+                if (p) {
+                    if (raw === p.raw) {
+                        this._overeno(p);
+                        return p.data;
+                    }
+                    delete this._pamet[pametKlic];
+                }
                 if (!raw) return null;
                 try {
                     const payload = JSON.parse(raw);
@@ -196,12 +227,22 @@ if (!window.DarkElfUtils) {
                             localStorage.removeItem(key);
                             return null;
                         }
+                        if (pamatovat) {
+                            const novy = { key: key, raw: raw, data: payload.data, expires: payload.expires, overeno: false };
+                            this._pamet[pametKlic] = novy;
+                            this._overeno(novy);
+                        }
                         return payload.data;
                     }
                     return payload.data !== undefined ? payload.data : payload;
                 } catch (e) {
                     return null;
                 }
+            },
+
+            _overeno: function(p) {
+                p.overeno = true;
+                Promise.resolve().then(function() { p.overeno = false; });
             }
         },
 
@@ -322,9 +363,19 @@ if (!window.DarkElfUtils) {
 
             getCountry: function(countryId) {
                 const cached = window.DarkElfUtils.Cache.get('api', 'map_json');
-                if (!cached || !cached.zeme) return null;
-                const id = parseInt(countryId, 10);
-                return cached.zeme.find(z => z.id === id) || null;
+                if (!cached || !Array.isArray(cached.zeme)) return null;
+                return this._podleId(cached.zeme).get(parseInt(countryId, 10)) || null;
+            },
+
+            _indexy: new WeakMap(),
+            _podleId: function(pole) {
+                let idx = this._indexy.get(pole);
+                if (!idx) {
+                    idx = new Map();
+                    pole.forEach(function(x) { if (x && !idx.has(x.id)) idx.set(x.id, x); });
+                    this._indexy.set(pole, idx);
+                }
+                return idx;
             },
 
             getHeader: function() {
@@ -534,9 +585,8 @@ if (!window.DarkElfUtils) {
 
             getCountry: function(countryId) {
                 const cached = window.DarkElfUtils.Cache.get('api', 'treaties_json');
-                if (!cached || !cached.smlouvy) return null;
-                const id = parseInt(countryId, 10);
-                return cached.smlouvy.find(s => s.id === id) || null;
+                if (!cached || !Array.isArray(cached.smlouvy)) return null;
+                return window.DarkElfUtils.MapAPI._podleId(cached.smlouvy).get(parseInt(countryId, 10)) || null;
             },
 
             getHeader: function() {
@@ -813,6 +863,8 @@ if (!window.DarkElfUtils) {
         },
 
         _ohlas: function(stav) {
+
+            window.DarkElfUtils.Cache._zapomen();
             try { window.dispatchEvent(new CustomEvent('de-prihlaseni', { detail: stav || this.precti() })); }
             catch (e) {  }
         },
@@ -1068,6 +1120,7 @@ if (!window.DarkElfUtils) {
                 label: opts.label || key,
                 level: opts.level || 'warn',
                 message: opts.message || '',
+                verify: opts.verify || null,
                 day: this._currentDay(),
                 ts: Date.now()
             };
@@ -1119,6 +1172,61 @@ if (!window.DarkElfUtils) {
                 text: labels.map(l => l + '!').join(' '),
                 message: messages.join(' ')
             };
+        },
+
+        checkFresh: async function() {
+            const recs = this.list().filter(r => r.verify && r.verify.kind === 'volneDomy');
+            if (recs.length) {
+                let stav = null;
+                try {
+                    stav = this._volneDomy(await window.DarkElfUtils.fetchPage('/auto_domy.asp'));
+                } catch (e) {
+                    console.debug('[RoundGuard] ověření domů selhalo', e && e.message);
+                }
+                if (stav && stav.size) {
+                    recs.forEach(r => {
+                        const zbyva = {};
+                        const jmena = [];
+                        for (const id in (r.verify.lands || {})) {
+                            const l = r.verify.lands[id];
+                            const z = stav.get(parseInt(id, 10));
+                            const potreba = z && z.pribude != null ? z.pribude : l.need;
+                            if (z && z.volne >= potreba) continue;
+                            zbyva[id] = z ? { name: l.name, need: potreba } : l;
+                            jmena.push(l.name || ('#' + id));
+                        }
+                        if (!jmena.length) {
+                            this.clear(r.key);
+                        } else {
+                            this.set(r.key, {
+                                label: r.label, level: r.level,
+                                message: jmena.length + ' z.: přírůstek > volné domy (dokup domů: ' + jmena.join(', ') + ')',
+                                verify: { kind: 'volneDomy', lands: zbyva }
+                            });
+                        }
+                    });
+                }
+            }
+            return this.check();
+        },
+
+        _volneDomy: function(doc) {
+            const out = new Map();
+            if (!doc) return out;
+            doc.querySelectorAll('form[name="form_domy"] table tr').forEach(tr => {
+                const a = tr.querySelector('a[href^="e.asp?id="]');
+                const m = a && (a.getAttribute('href') || '').match(/id=(\d+)/);
+                if (!m) return;
+                const id = parseInt(m[1], 10);
+                const hSpan = doc.getElementById('es' + id + 'h');
+                const bunka = hSpan && hSpan.closest('td');
+                const vm = bunka && (bunka.textContent || '').match(/\((\d+)\)/);
+                if (!vm) return;
+                const plus = tr.querySelector('span[style*="color:#33AA33"]');
+                const pm = plus && (plus.textContent || '').match(/\+\s*(\d+)/);
+                out.set(id, { volne: parseInt(vm[1], 10), pribude: pm ? parseInt(pm[1], 10) : null });
+            });
+            return out;
         }
     };
 
@@ -1163,6 +1271,24 @@ if (!window.DarkElfUtils) {
             }
             return total;
         }
+    };
+
+    function spocitejUtok(t1, t2, t3, o) {
+        const a = o.utoky;
+        let utok = (t1 * a[0]) + (t2 * a[1]) + (t3 * a[2]);
+        utok = Math.floor(utok * ((100 + o.heroPct) / 100));
+        utok += o.heroAbs;
+        if (o.modlitebna && utok >= 100) utok += 30;
+        if (o.katapult && utok >= 200) utok += 60;
+        const koef = 1 + (o.cesty ? 0.05 : 0) + (o.arena ? 0.10 : 0);
+        utok = Math.floor(utok * koef);
+        if (o.postih) utok = Math.round(utok * 0.7);
+        if (o.knight) utok = utok * 1.1;
+        return Math.floor(utok);
+    }
+
+    window.DarkElfUtils.Utok = {
+        sila: function(pocty, o) { return spocitejUtok(pocty[0], pocty[1], pocty[2], o); }
     };
 
     window.DarkElfUtils.NeutralAPI = {
@@ -1571,6 +1697,99 @@ if (!window.DarkElfUtils) {
         get: function() { return window.DarkElfUtils.Cache.get('api', this._CACHE); }
     };
 
+    window.DarkElfUtils.AttacksAPI = {
+        URL: '/attacks_list.asp?id_player=all',
+        _CACHE: 'attacks',
+
+        DOBYVACNY: 4,
+        PRESUN: 1,
+
+        _cislo: function(v) {
+            const t = String(v == null ? '' : v).trim();
+            return /^\d+$/.test(t) ? parseInt(t, 10) : null;
+        },
+
+        _bezDiakritiky: function(t) {
+            return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        },
+
+        _smer: function(td) {
+            let t = '';
+            for (let n = td.firstChild; n; n = n.nextSibling) {
+                if (n.nodeName === 'BR') break;
+                t += (n.textContent || '');
+            }
+            const cist = (x) => String(x).replace(/\s+/g, ' ').trim();
+            const i = t.indexOf('=>');
+            if (i < 0) return { odkud: '', kam: cist(t) };
+            return { odkud: cist(t.slice(0, i)), kam: cist(t.slice(i + 2)) };
+        },
+
+        parse: function(doc) {
+            const out = { utoky: [] };
+            if (!doc || !doc.querySelectorAll) return out;
+            doc.querySelectorAll('td[id_attack]').forEach(td => {
+                const zemeId = this._cislo(td.getAttribute('id_to'));
+                if (zemeId == null) return;
+                const obranceId = this._cislo(td.getAttribute('id_defender'));
+                const smer = this._smer(td);
+                out.utoky.push({
+                    id: this._cislo(td.getAttribute('id_attack')),
+                    typ: this._cislo(td.getAttribute('id_type')),
+                    typNazev: String(td.getAttribute('localized_name') || '').trim(),
+                    utocnik: String(td.getAttribute('name_attacker') || '').trim(),
+                    utocnikId: this._cislo(td.getAttribute('id_attacker')),
+                    obrance: String(td.getAttribute('name_defender') || '').trim(),
+                    obranceId: obranceId,
+                    neutral: obranceId == null,
+                    zemeId: zemeId,
+                    zeme: smer.kam,
+                    odkudId: this._cislo(td.getAttribute('id_from')),
+                    odkud: smer.odkud,
+                    sila: this._cislo(td.getAttribute('power')) || 0
+                });
+            });
+            return out;
+        },
+
+        dobyvaneZeme: function(data) {
+            const out = {};
+            ((data && data.utoky) || []).forEach(u => {
+                if (u.typ !== this.DOBYVACNY) return;
+                (out[u.zemeId] = out[u.zemeId] || []).push(u);
+            });
+            return out;
+        },
+
+        _jeToOnaStranka: function(doc) {
+            return this._bezDiakritiky((doc && doc.title) || '').indexOf('seznam vsech utok') > -1;
+        },
+
+        fetch: async function(force) {
+            const C = window.DarkElfUtils.Cache;
+            if (!force) {
+                const c = C.get('api', this._CACHE);
+                if (c) return c;
+            }
+            try {
+                const doc = await window.DarkElfUtils.fetchPage(this.URL);
+                if (!doc) return C.get('api', this._CACHE) || null;
+                const data = this.parse(doc);
+
+                if (!data.utoky.length && !this._jeToOnaStranka(doc)) {
+                    return C.get('api', this._CACHE) || null;
+                }
+                C.set('api', this._CACHE, data);
+                return data;
+            } catch (e) {
+                console.warn('DarkElfUtils.AttacksAPI.fetch:', e.message);
+                return C.get('api', this._CACHE) || null;
+            }
+        },
+
+        get: function() { return window.DarkElfUtils.Cache.get('api', this._CACHE); }
+    };
+
     function _parseHeroIds(doc, countryId) {
         if (!doc) return [];
         const cid = String(countryId);
@@ -1616,7 +1835,65 @@ if (!window.DarkElfUtils) {
         });
     }
 
+    async function nactiHrdinu(id) {
+
+        const zCache = window.DarkElfUtils.Cache.get('heroStat', id);
+        if (zCache) return zCache;
+
+        const doc = await window.DarkElfUtils.fetchPage('/hero.asp?h=' + id);
+        if (!doc) return null;
+
+        const h = { id: id, jmeno: null, majitel: null, majitelId: null, stav: null,
+                    utok: 0, obrana: 0, pctUtok: 0, pctObrana: 0, precteno: false };
+
+        const portret = doc.querySelector('a[href*="artefacts_list.asp?h="]');
+        const jmenoTd = portret && portret.closest('td') && portret.closest('td').nextElementSibling;
+        if (jmenoTd) {
+            h.jmeno = jmenoTd.textContent.replace(/ /g, ' ').trim().split(/\s{2,}|\n/)[0].trim();
+        }
+
+        for (const td of doc.querySelectorAll('td')) {
+            const popisek = td.textContent.replace(/ /g, ' ').trim().toLowerCase();
+            const hodnota = td.nextElementSibling;
+            if (!hodnota) continue;
+            const radek = td.closest('tr');
+            const cisla = radek ? (radek.textContent.match(/-?\d+/g) || []) : [];
+
+            if (popisek.indexOf('ve služb') === 0 || popisek.indexOf('ve sluzb') === 0) {
+                h.majitel = hodnota.textContent.replace(/ /g, ' ').trim();
+                const odkaz = hodnota.querySelector('a[href*="mapa.asp?hrac="]');
+                const m = odkaz && odkaz.getAttribute('href').match(/hrac=(\d+)/);
+                if (m) h.majitelId = m[1];
+            } else if (popisek === 'stav') {
+                h.stav = hodnota.textContent.trim();
+            } else if (popisek.indexOf('tok a obrana') >= 0) {
+                h.precteno = true;
+                if (cisla.length >= 2) { h.utok = parseInt(cisla[0], 10) || 0; h.obrana = parseInt(cisla[1], 10) || 0; }
+                else if (cisla.length === 1) { h.utok = parseInt(cisla[0], 10) || 0; }
+            } else if (popisek.indexOf('level útok') === 0 || popisek.indexOf('level tok') === 0) {
+                if (cisla.length) h.pctUtok = parseInt(cisla[0], 10) || 0;
+            } else if (popisek.indexOf('level obrana') === 0) {
+                if (cisla.length) h.pctObrana = parseInt(cisla[0], 10) || 0;
+            }
+        }
+
+        if (!h.precteno) return null;
+
+        window.DarkElfUtils.Cache.set('heroStat', id, h);
+        return h;
+    }
+
+    function jeMuj(h, mojeId, mojeJmeno) {
+        if (h.majitel === null) return true;
+        if (h.majitelId && mojeId && String(h.majitelId) === String(mojeId)) return true;
+        return !!(mojeJmeno && h.majitel === mojeJmeno);
+    }
+
     window.DarkElfUtils.HeroAPI = {
+
+        getStat: nactiHrdinu,
+
+        jeMuj: jeMuj,
 
         getIds: function(countryId, forceRefresh) {
             if (!forceRefresh) {
@@ -1732,7 +2009,7 @@ if (!window.DarkElfUtils) {
 
     function normalizeText(text) {
         if (!text) return "";
-        return text.toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+        return text.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     }
 
     function getStorageKeyWithLeague(leagueId) {
@@ -2569,6 +2846,7 @@ if (!window.DarkElfUtils) {
         ctx = ctx || {};
         ctx.nejista = [];
         ctx.nejistaSekce = [];
+        ctx.nejistyNasobek = [];
         const sekce = [];
         let aktualni = { nazev: "", radky: [] };
         sekce.push(aktualni);
@@ -2623,11 +2901,42 @@ if (!window.DarkElfUtils) {
             if (spojena) {
                 const moStitu = vytahniMO(stitek);
                 const prioStitu = maPrioritu(stitek);
+
+                const neuStitu = maNeu(stitek);
+                const skmaxStitu = maSKmax(stitek);
+                const skMinStitu = skMinZeStitku(stitek);
+
+                const kouzlaSpoje = spojena.map(k => k.nazev);
+                const klicN = klicNasobku(kouzlaSpoje, nasobek);
+                const volba = (nasobek > 1 && ctx.rozhodnuti) ? ctx.rozhodnuti[klicN] : null;
+                if (nasobek > 1 && !(volba && volba.typ === "nasobek")) {
+                    const drive = ctx.nejistyNasobek
+                        && ctx.nejistyNasobek.filter(x => x.klic === klicN)[0];
+                    if (drive) {
+
+                        if (drive.radky.indexOf(line) === -1) drive.radky.push(line);
+                    } else if (ctx.nejistyNasobek) {
+                        ctx.nejistyNasobek.push({ klic: klicN, text: stitek, radky: [line],
+                                                  kouzla: kouzlaSpoje, nasobek: nasobek });
+                    }
+                    nezarazeno.push(line);
+                    posledni = null;
+                    return;
+                }
+
+                const maNasobek = (nazev) => !volba
+                    || (volba.kouzla || []).indexOf(nazev) > -1;
                 spojena.forEach(k => {
                     aktualni.radky.push({
-                        kouzlo: k, stitekRaw: stitek, nasobek: 1, prio: prioStitu,
-                        mo: moStitu, poznamka: uvoz.poznamka,
-                        zeme: parseLands(telo), moZeme: moZeZavorek(telo)
+                        kouzlo: k, stitekRaw: stitek,
+                        nasobek: maNasobek(k.nazev) ? nasobek : 1, prio: prioStitu,
+                        plusy: plusy, hotovo: hotovoRadku,
+                        mo: moStitu, neu: neuStitu,
+                        skmax: skmaxStitu, skMin: skMinStitu,
+                        poznamka: uvoz.poznamka,
+                        zeme: parseLands(telo), moZeme: moZeZavorek(telo),
+
+                        nasobekZeme: nasobkyZeme(telo)
                     });
                     const r = aktualni.radky[aktualni.radky.length - 1];
                     r.kat = katRadku(aktualni.nazev, r.prio, "");
@@ -2835,7 +3144,8 @@ if (!window.DarkElfUtils) {
 
         sekce.forEach(sek => { sek.radky = slucRadky(sek.radky); });
         return { hlavicka: hlavicka, nejista: ctx.nejista,
-                 nejistaSekce: ctx.nejistaSekce, hraci: hraci,
+                 nejistaSekce: ctx.nejistaSekce, nejistyNasobek: ctx.nejistyNasobek,
+                 hraci: hraci,
                  sekce: sekce.filter(s => s.radky.length || s.nazev), nezarazeno: nezarazeno };
     }
 
@@ -2957,7 +3267,13 @@ if (!window.DarkElfUtils) {
         const t = String(stitek || "");
         if (t.indexOf("+") < 0) return null;
 
-        const bezMO = t.replace(/mo\s*\d+(?:\s*-\s*\d+)?\s*\+?/i, " ").replace(/[!]/g, " ");
+        const bezMO = t.replace(/mo\s*-?\s*\d+(?:\s*-\s*\d+)?\s*\+?/i, " ")
+            .replace(PRIZNAK_SKMAX_RE, " ")
+            .replace(PRIZNAK_SKMIN_RE, " ")
+            .replace(PRIZNAK_NEU_RE, " ")
+            .replace(SLOVO_NEUTRALKA_RE, " ")
+            .replace(VEZ_ZKRATKY_RE, " ")
+            .replace(/[!]/g, " ");
 
         const casti = bezMO.split("+")
             .map(c => c.replace(/^[\s_-]+|[\s_-]+$/g, ""))
@@ -3459,7 +3775,7 @@ if (!window.DarkElfUtils) {
         (data.nezarazeno || []).forEach(line => {
             const kde = najdiVText(text, line);
             const k = (kde.length ? kde : nenalezeno(line))[0];
-            nalezy.push({ druh: "radek", popis: "nepoznal jsem kouzlo", cast: line,
+            nalezy.push({ druh: "radek", popis: duvodNezarazeni(data, line), cast: line,
                           radek: k.radek, textRadku: k.textRadku, od: k.od, do: k.do,
                           odVRadku: k.odVRadku, doVRadku: k.doVRadku });
         });
@@ -3479,6 +3795,27 @@ if (!window.DarkElfUtils) {
         if (n.vysledek === "neutral") return zkr + " to srazí jen na neutrál";
         const nyni = (n.radek && n.radek.nasobek) || 1;
         return (Math.abs(n.zbyva) > nyni) ? ("jinak " + Math.abs(n.zbyva) + "×") : "stačí, jak je psáno";
+    }
+
+    function klicNasobku(kouzla, nasobek) { return "nasobek|" + kouzla.join("+") + "|" + nasobek; }
+
+    function otazkyNasobku(data, text) {
+        return (data && data.nejistyNasobek || []).map(n => {
+            const kde = najdiVText(text, n.text);
+            const k = kde.length ? kde[0]
+                : { radek: 0, textRadku: n.text, od: 0, do: 0,
+                    odVRadku: 0, doVRadku: String(n.text).length };
+            return { klic: n.klic, text: n.text, kouzla: n.kouzla, nasobek: n.nasobek,
+                     popis: "co z toho má být " + n.nasobek + "×?",
+                     radek: k.radek, textRadku: k.textRadku, od: k.od, do: k.do,
+                     odVRadku: k.odVRadku, doVRadku: k.doVRadku };
+        });
+    }
+
+    function duvodNezarazeni(data, line) {
+        const ceka = (data && data.nejistyNasobek || [])
+            .some(n => (n.radky || []).indexOf(line) > -1);
+        return ceka ? "čeká na rozhodnutí o násobku" : "nepoznal jsem kouzlo";
     }
 
     function otazkySekci(data, text) {
@@ -3887,9 +4224,16 @@ if (!window.DarkElfUtils) {
         return { smer: smer, osy: out };
     }
 
-    function nahradniKouzla(r, zbyva) {
+    function nahradniKouzla(r, zbyva, cenik) {
         const S = window.DarkElfUtils.Spells;
         if (!r || !zbyva || !zbyva.smer) return [];
+
+        const cenaKouzla = (nazev) => {
+            const z = cenik ? cenik(nazev) : null;
+            return (z == null)
+                ? { cena: (S.LIST[nazev] || {}).cena || 0, presna: false }
+                : { cena: z, presna: true };
+        };
         const osy = Object.keys(zbyva.osy);
         if (osy.length < 2) return [];
         const hodnoty = osy.map(o => zbyva.osy[o]);
@@ -3906,9 +4250,12 @@ if (!window.DarkElfUtils) {
                 && k[0].nasobek === (r.nasobek || 1)) return;
             const klic = k.map(x => x.nasobek + "×" + x.nazev).join("+");
             if (out.some(m => m.klic === klic)) return;
+            const ceny = k.map(x => cenaKouzla(x.nazev));
             out.push({ klic: klic, kouzla: k,
                        seslani: k.reduce((a, x) => a + x.nasobek, 0),
-                       cena: k.reduce((a, x) => a + ((S.LIST[x.nazev] || {}).cena || 0) * x.nasobek, 0) });
+
+                       presna: ceny.every(c => c.presna),
+                       cena: k.reduce((a, x, i) => a + ceny[i].cena * x.nasobek, 0) });
         };
 
         pridej(osy.map(o => ({ nazev: jedna[o], nasobek: zbyva.osy[o] })));
@@ -4002,6 +4349,43 @@ if (!window.DarkElfUtils) {
             }
         });
 
+        return nalezy;
+    }
+
+    function kontrolaDobyvani(data, idx, utoky) {
+        const S = window.DarkElfUtils.Spells;
+        const nalezy = [];
+
+        const vLomitkach = {};
+        ((data && data.hraci) || []).forEach(h => {
+            (h.mimo || []).forEach(j => { vLomitkach[normalizeText(j)] = h.jmeno; });
+        });
+
+        const cervenaNaSkaly = (r) => variantyRadku(r).some(nazev => {
+            const info = S.LIST[nazev];
+            return !!S.kroky(nazev) && !!info && info.typ === "cervene";
+        });
+
+        ((data && data.sekce) || []).forEach(sek => sek.radky.forEach(r => {
+            if (r.kat === KAT_ZAKOUZLENO) return;
+            if (!r.kouzlo || !cervenaNaSkaly(r)) return;
+            r.zeme.forEach(jmeno => {
+                const klic = normalizeText(jmeno);
+                const z = idx ? idx[klic] : null;
+                const utok = (z && utoky) ? (utoky[z.id] || [])[0] : null;
+                const hrac = vLomitkach[klic];
+                if (!hrac && !utok) return;
+                nalezy.push({
+                    zeme: jmeno, id: z ? z.id : null, kouzlo: r.kouzlo.nazev,
+
+                    duvod: hrac ? "lomitka" : "utok",
+                    hrac: hrac || (utok ? utok.obrance : ""),
+                    sila: utok ? utok.sila : 0,
+                    utocnik: utok ? utok.utocnik : "",
+                    radek: r, sekce: sek
+                });
+            });
+        }));
         return nalezy;
     }
 
@@ -4119,7 +4503,11 @@ if (!window.DarkElfUtils) {
                     .filter(Boolean).join(" ");
                 zmeny.poznamkaNejista = "";
             } else if (zeZak && !doZak) {
-                zmeny.poznamka = vytahniUvozovky(n.radek.poznamka).poznamka;
+
+                const u = vytahniUvozovky(n.radek.poznamka);
+                const rovna = u.text.indexOf("= ");
+                const zaRovnitkem = (rovna > -1) ? u.text.slice(rovna + 2).trim() : "";
+                zmeny.poznamka = [zaRovnitkem, u.poznamka].filter(Boolean).join(" ");
                 zmeny.poznamkaNejista = "";
             }
 
@@ -4330,6 +4718,8 @@ if (!window.DarkElfUtils) {
         return NA_HRACE_KOUZLA.indexOf(nazev) > -1;
     }
 
+    const DAVKA_DO_UTOKU = "Do útoku";
+
     function zkratkaVeze(z) {
         const v = window.DarkElfUtils.parseTower(z && z.img_vez);
         return v ? (VEZ_ZOBRAZ[v.key] || v.cz) : "";
@@ -4345,7 +4735,7 @@ if (!window.DarkElfUtils) {
         return "MO" + stav.mo + (stav.jistota === "presna" ? "" : "+");
     }
 
-    function davkyProHrace(h, zeme, cast) {
+    function davkyProHrace(h, zeme, cast, utoky) {
         const mimo = {};
         (h.mimo || []).forEach(j => { mimo[normalizeText(j)] = true; });
 
@@ -4366,9 +4756,13 @@ if (!window.DarkElfUtils) {
             if (mimo[normalizeText(z.zeme)]) { mimoNalezeno++; return; }
 
             const stav = moProTyp(z, "cervene");
-            const klic = skupinaMO(stav);
+
+            const utok = utoky ? (utoky[z.id] || [])[0] : null;
+            const klic = utok ? DAVKA_DO_UTOKU : skupinaMO(stav);
             if (!skupiny[klic]) {
-                skupiny[klic] = { klic: klic, mo: stav.mo, jistota: stav.jistota, zeme: [] };
+                skupiny[klic] = utok
+                    ? { klic: klic, mo: null, jistota: null, doUtoku: true, zeme: [] }
+                    : { klic: klic, mo: stav.mo, jistota: stav.jistota, zeme: [] };
                 poradi.push(klic);
             }
 
@@ -4386,6 +4780,8 @@ if (!window.DarkElfUtils) {
                 jmeno: z.zeme, id: z.id, vez: zkratkaVeze(z), vezNazev: nazevVeze(z),
 
                 nulka: !z.land_power,
+
+                utok: utok || null,
                 hozeno: nase, zlute: zlute,
                 hotovo: nase.some(x => !x.odrazeno),
                 odrazeno: nase.length > 0 && nase.every(x => x.odrazeno)
@@ -4394,6 +4790,8 @@ if (!window.DarkElfUtils) {
 
         poradi.sort((a, b) => {
             const A = skupiny[a], B = skupiny[b];
+
+            if (!!A.doUtoku !== !!B.doUtoku) return A.doUtoku ? 1 : -1;
 
             if (A.mo == null) return 1;
             if (B.mo == null) return -1;
@@ -4418,6 +4816,22 @@ if (!window.DarkElfUtils) {
                 return sk;
             })
         };
+    }
+
+    function utokyKRozhodnuti(hraci, zeme, cast, utoky) {
+        const out = [];
+        if (!utoky || !zeme) return out;
+        (hraci || []).forEach(h => {
+            davkyProHrace(h, zeme, cast, utoky).skupiny.forEach(sk => {
+                if (!sk.doUtoku) return;
+                sk.zeme.forEach(z => out.push({
+                    hrac: h, jmeno: h.jmeno, zeme: z.jmeno, id: z.id,
+                    sila: z.utok ? z.utok.sila : 0,
+                    utocnik: z.utok ? z.utok.utocnik : ""
+                }));
+            });
+        });
+        return out;
     }
 
     function souhrnProHrace(v) {
@@ -4556,6 +4970,13 @@ if (!window.DarkElfUtils) {
             if (norm(holy) === cil) return sel.options[i];
         }
         return null;
+    }
+
+    function cenaZRoletky(nazev) {
+        const sel = document.getElementById("K1");
+        if (!sel) return null;
+        const opt = optionKouzla(sel, nazev);
+        return opt ? cenaZOption(opt) : null;
     }
 
     function cenaZOption(opt) {
@@ -5294,6 +5715,19 @@ if (!window.DarkElfUtils) {
             } catch (e) { }
         }
 
+        function sekceNasobku() {
+            const otazky = stav.data ? otazkyNasobku(stav.data, vstup.value) : [];
+            if (!otazky.length) return [];
+            return [{
+                nadpis: "✱ Násobek u spojeného štítku", barva: "#ffcc66",
+                napoveda: "U `2×VŠV+PZ` se nedá poznat, jestli má být dvakrát obojí, "
+                          + "nebo jen jedno z nich. Dokud nerozhodneš, zůstane řádek "
+                          + "v listu doslova a nikam se nepočítá. Po odpovědi se "
+                          + "rozepíše na samostatné řádky, takže se už ptát nebudu.",
+                kresli: (host) => vykresliNasobek(host, otazky)
+            }];
+        }
+
         function klicNalezu(druh, n) {
             const c = (x) => (x == null ? "" : String(x));
             const kl = (pole) => pole.map(c).join("|");
@@ -5310,6 +5744,10 @@ if (!window.DarkElfUtils) {
                 case "dupl":     return kl(["dupl", n.zeme, n.kouzlo,
                                             (n.kdo || []).slice().sort().join("+")]);
                 case "hrac":     return kl(["hrac", n.jmeno, n.vListu, n.naMape]);
+
+                case "utok":     return kl(["utok", n.jmeno, n.zeme, n.sila]);
+                case "dobyvani": return kl(["dobyvani", n.zeme, n.kouzlo, n.duvod,
+                                            stitekRadku(n.radek)]);
             }
             return druh + "|" + JSON.stringify(n);
         }
@@ -5330,6 +5768,8 @@ if (!window.DarkElfUtils) {
                                         + (n.kdo || []).join(", ") + ")";
                 case "hrac":     return n.jmeno + " — v listu " + n.vListu + ", na mapě "
                                         + n.naMape;
+                case "utok":     return n.zeme + " — jde na ni útok (" + n.jmeno + ")";
+                case "dobyvani": return n.zeme + " " + zk(n.kouzlo) + " — dobýváme";
             }
             return druh;
         }
@@ -5357,9 +5797,13 @@ if (!window.DarkElfUtils) {
             rozdel("zak", ali ? kontrolaZakouzleno(d, stav.cast, stav.idx).nalezy : []);
             const vListu = ali ? idsZListu(d, stav.idx) : {};
             rozdel("dupl", ali ? duplicityVAlianci(stav.cast).filter(x => vListu[x.id]) : []);
+            rozdel("utok", d ? utokyKRozhodnuti(d.hraci, stav.zeme, stav.cast, stav.utoky) : []);
+
+            rozdel("dobyvani", d ? kontrolaDobyvani(d, stav.idx, stav.utoky) : []);
             rozdel("hrac", nesediPoctyHracu());
             out.hlidani = otazkyHlidani();
             out.sekce = d ? otazkySekci(d, vstup.value) : [];
+            out.nasobek = d ? otazkyNasobku(d, vstup.value) : [];
             return out;
         }
 
@@ -5455,6 +5899,8 @@ if (!window.DarkElfUtils) {
                 });
             }
 
+            sekceNasobku().forEach(x => out.push(x));
+
             const hlidani = otazkyHlidani();
             if (hlidani.length) {
                 out.push({
@@ -5463,6 +5909,32 @@ if (!window.DarkElfUtils) {
                               + "platí SK: MO se nekontroluje a slabý hod zůstane "
                               + "v „Pro jistotu překouzlit“. Odpověď platí do půlnoci.",
                     kresli: (host) => vykresliHlidani(host, hlidani)
+                });
+            }
+
+            const utoky = nalezyKVyrizeni().utok;
+            if (utoky.length) {
+                out.push({
+                    nadpis: "⚔ Jde na ni útok, a v // není (" + utoky.length + ")",
+                    barva: "#ffcc66",
+                    napoveda: "Podle seznamu útoků se ta zem dobývá, ale v listu o tom není "
+                              + "ani slovo. ✓ ji dopíše mezi lomítka a kouzlení na hráče ji "
+                              + "přeskočí. ✗ ji nechá v dávce Do útoku — to je na místě, "
+                              + "když je ten útok jen testovací a nepočítáš, že projde.",
+                    kresli: (host) => vykresliUtoky(host, utoky)
+                });
+            }
+
+            const dobyvani = nalezyKVyrizeni().dobyvani;
+            if (dobyvani.length) {
+                out.push({
+                    nadpis: "⚔ Dobýváme, a letí tam červená (" + dobyvani.length + ")",
+                    barva: "#cc9944",
+                    napoveda: "Po dobytí je ta zem tvoje i s tou nespokojeností, takže na ni "
+                              + "nemá smysl posílat nespo ani kletbu. ✓ zem z řádku smaže, "
+                              + "✗ ji tam nechá do půlnoci — třeba když je ten útok jen "
+                              + "testovací a nepočítáš, že projde.",
+                    kresli: (host) => vykresliDobyvani(host, dobyvani)
                 });
             }
 
@@ -5491,12 +5963,13 @@ if (!window.DarkElfUtils) {
             const drzet = kProcteni.length > 0;
             const potom = drzet
                 ? ((nk.zapis.length - kProcteni.length) + nk.mo.length + nk.neprosle.length
-                   + nk.osy.length + nk.zak.length + nk.dupl.length + nk.hrac.length)
+                   + nk.osy.length + nk.zak.length + nk.dupl.length + nk.hrac.length
+                   + nk.dobyvani.length + nk.utok.length)
                 : 0;
 
-            let sekceOkna = drzet ? [] : sekceDoOkna();
+            let sekceOkna = drzet ? sekceNasobku() : sekceDoOkna();
             if (drzet && potom) {
-                sekceOkna = [{
+                sekceOkna = sekceOkna.concat([{
                     nadpis: "⏭ Zbytek až po přečtení", barva: "#777",
                     napoveda: "Nejdřív oprav to nahoře v poli s ML a dej Přechroustat. "
                               + "Kolize a MO se rovnají až nad listem, který se přečetl celý — "
@@ -5506,7 +5979,7 @@ if (!window.DarkElfUtils) {
                             + (potom === 1 ? "věc počká" : (potom < 5 ? "věci počkají" : "věcí počká"))
                             + ", až bude list přečtený celý.";
                     }
-                }];
+                }]);
             }
 
             otevriOkno(drzet ? kProcteni : nk.zapis, vstup, nk.otazka, {
@@ -5878,10 +6351,19 @@ if (!window.DarkElfUtils) {
             }
 
             if (stav.data.nezarazeno.length) {
-                const nez = document.createElement("div");
-                nez.style.cssText = "color:#996655;margin-top:4px;";
-                nez.textContent = "Nezařazeno (nepoznal jsem kouzlo): " + stav.data.nezarazeno.join(" | ");
-                vystup.appendChild(nez);
+
+                const podleDuvodu = {}, poradiD = [];
+                stav.data.nezarazeno.forEach(line => {
+                    const d = duvodNezarazeni(stav.data, line);
+                    if (!podleDuvodu[d]) { podleDuvodu[d] = []; poradiD.push(d); }
+                    podleDuvodu[d].push(line);
+                });
+                poradiD.forEach(d => {
+                    const nez = document.createElement("div");
+                    nez.style.cssText = "color:#996655;margin-top:4px;";
+                    nez.textContent = "Nezařazeno (" + d + "): " + podleDuvodu[d].join(" | ");
+                    vystup.appendChild(nez);
+                });
             }
 
             const souhrnCeny = celkemZemi + " seslání · "
@@ -5913,7 +6395,8 @@ if (!window.DarkElfUtils) {
             nk = nk || nalezyKVyrizeni();
             return nk.zapis.length + nk.otazka.length + nk.mo.length + nk.neprosle.length
                  + nk.osy.length + nk.zak.length + nk.dupl.length + nk.hrac.length
-                 + nk.hlidani.length + nk.sekce.length;
+                 + nk.dobyvani.length + nk.utok.length
+                 + nk.hlidani.length + nk.sekce.length + nk.nasobek.length;
         }
 
         function vykresliNaHrace(kam) {
@@ -6000,11 +6483,13 @@ if (!window.DarkElfUtils) {
                 if (i > -1) d.klice.splice(i, 1); else d.klice.push(klic);
                 stav.davkaHrace = d.klice.length ? d : null;
                 stav.davka = null;
-                const v = davkyProHrace(hracPodleJmena(hrac), stav.zeme, stav.cast);
+                const v = davkyProHrace(hracPodleJmena(hrac), stav.zeme, stav.cast, stav.utoky);
                 nalozVyber(v);
             }
 
             const hracPodleJmena = (jm) => hraci.filter(h => h.jmeno === jm)[0] || null;
+
+            const kusy = (n, a, b, c) => n + " " + (n === 1 ? a : (n < 5 ? b : c));
 
             const radekSkupiny = (v, sk, oddelit) => {
                 const okraj = !oddelit ? ""
@@ -6014,29 +6499,17 @@ if (!window.DarkElfUtils) {
                 const tr = document.createElement("tr");
 
                 const tdM = document.createElement("td");
-                tdM.style.cssText = "width:28%;vertical-align:top;padding:2px 4px 2px 0;"
+                tdM.style.cssText = "width:34%;vertical-align:top;padding:2px 4px 2px 0;"
                     + "white-space:nowrap;" + okraj;
 
                 const kolik = sk.kNalozeni.length;
                 const vybrano = jeVeVyberu(v.jmeno, sk.klic);
                 const hlavni = document.createElement(kolik ? "a" : "span");
-                hlavni.style.cssText = "display:block;text-decoration:none;color:"
-                    + (vybrano ? "#88bb66" : (kolik ? "#ddd" : "#777")) + ";";
-
-                const klic = document.createElement("span");
-                klic.style.cssText = "display:block;"
+                hlavni.style.cssText = "text-decoration:none;color:"
+                    + (vybrano ? "#88bb66" : (kolik ? "#ddd" : "#777")) + ";"
                     + (vybrano ? "font-weight:bold;" : "")
                     + (kolik ? "text-decoration:underline dotted;" : "");
-                klic.textContent = (vybrano ? "✓ " : "") + sk.klic;
-                hlavni.appendChild(klic);
-
-                hlavni.appendChild(document.createTextNode(" "));
-
-                const pocet = document.createElement("span");
-                pocet.style.cssText = "display:block;font-size:11px;color:"
-                    + (kolik ? "#999" : "#666") + ";";
-                pocet.textContent = kolik + " z " + sk.zeme.length;
-                hlavni.appendChild(pocet);
+                hlavni.textContent = (vybrano ? "✓ " : "") + sk.klic;
 
                 if (kolik) {
                     hlavni.href = "#";
@@ -6045,7 +6518,7 @@ if (!window.DarkElfUtils) {
                     hlavni.title = (vybrano
                         ? "Je ve výběru — klik ji zase odebere."
                         : "Přidá " + kolik + " zemí do výběru (dá se naklikat víc MO "
-                          + "najednou). Kouzlo si vyber v roletce K1…K5 sám.");
+                          + "najednou). Kouzlo pak vyber v patičce, nebo ručně v K1…K5.");
                     hlavni.onclick = (ev) => {
                         ev.preventDefault();
                         prepniSkupinu(v.jmeno, sk.klic);
@@ -6053,14 +6526,37 @@ if (!window.DarkElfUtils) {
                 } else {
                     hlavni.title = "Na každou zem téhle dávky dnes už něco prošlo.";
                 }
+                tdM.appendChild(hlavni);
+
+                tdM.appendChild(document.createTextNode(" "));
+
+                const tdZ = document.createElement("td");
+                tdZ.style.cssText = "vertical-align:top;padding:2px 0;text-align:right;"
+                    + "color:#888;" + okraj;
+
+                const pocetZ = document.createElement("span");
+                pocetZ.style.cssText = "color:" + (kolik ? "#ddd" : "#666") + ";";
+                pocetZ.textContent = kolik + " zemí";
+                if (kolik) {
+                    pocetZ.title = sk.kNalozeni.map(jm => {
+                        const z = sk.zeme.filter(x => x.jmeno === jm)[0];
+                        return (z && z.vez) ? (jm + " (" + z.vez + ")") : jm;
+                    }).join(", ");
+                }
+                tdZ.appendChild(pocetZ);
 
                 if (sk.hotove.length) {
-                    pocet.style.cssText += "cursor:pointer;text-decoration:underline dotted;";
-                    pocet.setAttribute("data-akce", "hotove");
-                    pocet.title = "Naloží " + sk.hotove.length + " hotových zemí do buňky "
+                    tdZ.appendChild(document.createTextNode(" · "));
+                    const hot = document.createElement("a");
+                    hot.href = "#";
+                    hot.setAttribute("data-akce", "hotove");
+                    hot.style.cssText = "color:#888;text-decoration:underline dotted;"
+                        + "cursor:pointer;";
+                    hot.textContent = kusy(sk.hotove.length, "hotová", "hotové", "hotových");
+                    hot.title = "Naloží " + sk.hotove.length + " hotových zemí do buňky "
                         + "KE KONTROLE (zakouzlené: " + sk.hotove.join(", ") + ")."
                         + "\nNekouzli na ně znovu — jen se podívej a buňku pak vyprázdni.";
-                    pocet.onclick = (ev) => {
+                    hot.onclick = (ev) => {
                         ev.preventDefault();
                         ev.stopPropagation();
                         stav.davka = null;
@@ -6073,37 +6569,87 @@ if (!window.DarkElfUtils) {
                                + "). Tady už kouzlo prošlo — neposílej na ně další.")
                             : "Nenašel jsem herní buňku se zeměmi.";
                     };
+                    tdZ.appendChild(hot);
                 }
-                tdM.appendChild(hlavni);
 
-                const tdZ = document.createElement("td");
-                tdZ.style.cssText = "vertical-align:top;padding:2px 0;color:#888;"
-                    + "word-break:break-word;" + okraj;
-
-                const kVypisu = sk.zeme.filter(z => !z.hotovo);
-                kVypisu.forEach((z, i) => {
-                    if (i) tdZ.appendChild(document.createTextNode(", "));
+                const znacka = (pole, barva, a, b, c, bublina) => {
+                    if (!pole.length) return;
+                    tdZ.appendChild(document.createTextNode(" · "));
                     const sp = document.createElement("span");
-                    sp.textContent = z.jmeno;
-
-                    const bublina = [z.jmeno + " — " + z.vezNazev];
-                    if (z.zlute.length) {
-
-                        sp.style.cssText = "color:#ffcc66;";
-                        bublina.push("Jde tam " + popisSeslani(z.zlute)
-                            + " — na tu zem se z kouzlení na hráče nekouzlí nic.");
-                    } else if (z.odrazeno) {
-                        sp.style.cssText = "color:#ff8866;";
-                        bublina.push("Odrazilo se: " + popisSeslani(z.hozeno)
-                            + " — zem v dávce ZŮSTÁVÁ, odražené seslání není hotová práce.");
-                    }
-                    sp.title = bublina.join("\n");
+                    sp.style.cssText = "color:" + barva + ";";
+                    sp.textContent = kusy(pole.length, a, b, c);
+                    sp.title = bublina + "\n\n" + pole.map(z => z.jmeno + ": "
+                        + popisSeslani(z.zlute.length ? z.zlute : z.hozeno)).join("\n");
                     tdZ.appendChild(sp);
-                });
+                };
+                znacka(sk.zeme.filter(z => !z.hotovo && z.zlute.length), "#ffcc66",
+                    "žlutá", "žluté", "žlutých",
+                    "Jde tam žluté kouzlo od aliance — z kouzlení na hráče se na tu "
+                    + "zem nekouzlí nic, a proto není v počtu výš.");
+                znacka(sk.zeme.filter(z => z.odrazeno), "#ff8866",
+                    "odražená", "odražené", "odražených",
+                    "Odrazilo se. Zem v dávce ZŮSTÁVÁ (je v počtu výš) — odražené "
+                    + "seslání není hotová práce.");
 
                 tr.appendChild(tdM);
                 tr.appendChild(tdZ);
                 return tr;
+            };
+
+            const cenovaPaticka = (v) => {
+                const vybrane = zemeVyberu(v);
+                if (!vybrane.length) return document.createDocumentFragment();
+                const S = window.DarkElfUtils.Spells;
+
+                const pat = document.createElement("div");
+                pat.style.cssText = "margin:3px 0 1px 0;padding-top:3px;color:#888;"
+                    + "border-top:1px solid rgba(170,136,221,0.35);";
+                pat.textContent = "vybráno " + vybrane.length + " zemí · ";
+
+                NA_HRACE_KOUZLA.slice()
+                    .sort((a, b) => ((S.LIST[a] || {}).cena || 0) - ((S.LIST[b] || {}).cena || 0))
+                    .forEach((nazev, i) => {
+                        if (i) pat.appendChild(document.createTextNode(" · "));
+                        const zRoletky = cenaZRoletky(nazev);
+                        const zaKus = (zRoletky == null)
+                            ? ((S.LIST[nazev] || {}).cena || 0) : zRoletky;
+                        const cena = zaKus * vybrane.length;
+                        const mana = aktualniMana();
+
+                        const a = document.createElement("a");
+                        a.href = "#";
+                        a.setAttribute("data-akce", "hrac-kouzlo");
+                        a.style.cssText = "color:#ddd;text-decoration:underline dotted;"
+                            + "cursor:pointer;";
+                        a.textContent = S.zkratka(nazev) + " "
+                            + (zRoletky == null ? "≈" : "") + cz(cena);
+                        a.title = "Vybere " + nazev + " v K1…K5 a naloží těch "
+                            + vybrane.length + " zemí. Pak už jen „Seslat na napsané země“."
+                            + "\n" + cz(zaKus) + " za zem"
+                            + (zRoletky == null ? " (ceník, BEZ tvé slevy)" : " po tvé slevě")
+                            + (mana != null
+                                ? ("\nMáš " + cz(mana) + " many, zbude " + cz(mana - cena))
+                                : "");
+                        a.onclick = (ev) => {
+                            ev.preventDefault();
+                            const r = pripravKouzleni(
+                                { kouzlo: S.byName(nazev), nasobek: 1, zeme: vybrane }, stav.idx);
+
+                            vykresli();
+                            const h = document.getElementById("ml_hrace_hlaska");
+                            if (!h) return;
+                            h.style.display = "block";
+                            h.style.color = (!r || r.chyba) ? "#ff8866" : "#88bb66";
+                            h.textContent = !r
+                                ? "Nenašel jsem herní formulář (roletky K1…K5)."
+                                : (r.chyba ? r.chyba
+                                    : ("Naloženo " + vybrane.length + " zemí a vybráno "
+                                       + S.zkratka(nazev)
+                                       + ". Zkontroluj a dej „Seslat na napsané země“."));
+                        };
+                        pat.appendChild(a);
+                    });
+                return pat;
             };
 
             const ramecekDavek = (v) => {
@@ -6113,7 +6659,7 @@ if (!window.DarkElfUtils) {
                     + "border:1px solid #554477;border-radius:3px;"
                     + "background:rgba(119,85,170,0.10);";
 
-                const lze = v.skupiny.filter(sk => sk.kNalozeni.length);
+                const lze = v.skupiny.filter(sk => sk.kNalozeni.length && !sk.doUtoku);
                 if (lze.length > 1) {
                     const vse = document.createElement("a");
                     vse.href = "#";
@@ -6148,11 +6694,12 @@ if (!window.DarkElfUtils) {
                     tab.appendChild(radekSkupiny(v, sk, oddelit));
                 });
                 ram.appendChild(tab);
+                ram.appendChild(cenovaPaticka(v));
                 return ram;
             };
 
             hraci.forEach(h => {
-                const v = davkyProHrace(h, stav.zeme, stav.cast);
+                const v = davkyProHrace(h, stav.zeme, stav.cast, stav.utoky);
                 const rozbaleno = (stav.hracRozbalen === v.jmeno);
 
                 const radek = document.createElement("div");
@@ -6277,6 +6824,47 @@ if (!window.DarkElfUtils) {
             });
         }
 
+        function vykresliNasobek(kam, otazky) {
+            const S = window.DarkElfUtils.Spells;
+            otazky.forEach(o => {
+                const d = document.createElement("div");
+                d.style.cssText = "margin:3px 0;line-height:1.4;color:#ddd;";
+                const jm = document.createElement("span");
+                jm.style.cssText = "color:#ffcc66;margin-right:6px;";
+                jm.textContent = "„" + o.text + "“";
+                d.appendChild(jm);
+                const pozn = document.createElement("span");
+                pozn.style.cssText = "color:#777;";
+                pozn.textContent = o.popis + " · ř. " + (o.radek || "?");
+                d.appendChild(pozn);
+                kam.appendChild(d);
+
+                const volby = document.createElement("div");
+                volby.style.cssText = "margin:0 0 7px 8px;padding-left:6px;color:#ddd;";
+                const pridej = (text, kouzla, titulek) => {
+                    const a = document.createElement("a");
+                    a.href = "#";
+                    a.textContent = text;
+                    a.title = titulek;
+                    a.setAttribute("data-akce", "nasobek");
+                    a.style.cssText = "text-decoration:none;color:#cc9944;margin-right:10px;";
+                    a.onclick = (ev) => {
+                        ev.preventDefault();
+                        stav.rozhodnuti[o.klic] = { typ: "nasobek", kouzla: kouzla };
+                        poRozhodnuti();
+                    };
+                    volby.appendChild(a);
+                };
+                o.kouzla.forEach(nazev => {
+                    pridej("jen " + S.zkratka(nazev), [nazev],
+                           nazev + " bude " + o.nasobek + "×, zbytek jednou.");
+                });
+                pridej("obojí", o.kouzla.slice(),
+                       "Každé kouzlo ze štítku bude " + o.nasobek + "×.");
+                kam.appendChild(volby);
+            });
+        }
+
         function vykresliHlidani(kam, otazky) {
             otazky.forEach(o => {
                 const d = document.createElement("div");
@@ -6331,6 +6919,66 @@ if (!window.DarkElfUtils) {
                 otevriOknoTed();
             };
             kam.appendChild(zpet);
+        }
+
+        function vykresliUtoky(kam, nalezy) {
+            nalezy.forEach(n => {
+                const d = document.createElement("div");
+                d.style.cssText = "margin:1px 0;line-height:1.35;color:#ddd;";
+                if (n.id != null) d.appendChild(odkazNaMapu(n.id));
+                const t = document.createElement("span");
+                t.textContent = n.zeme + " (" + n.jmeno + ") — útok " + cz(n.sila)
+                    + (n.utocnik ? (" od " + n.utocnik) : "");
+                t.title = "Jde na ni dobyvačný útok, ale mezi lomítky u hráče "
+                    + n.jmeno + " není."
+                    + "\n✓ ji tam dopíše — kouzlení na hráče ji pak přeskočí úplně"
+                    + " a rozhodnutí odejde v listu i spoluhráčům."
+                    + "\n✗ ji nechá v dávce Do útoku: hromadný výběr ji nesebere,"
+                    + " ale kouzlit na ni schválně jde dál.";
+                d.appendChild(t);
+                kam.appendChild(sAkcemi(d,
+                    () => {
+
+                        const jm = normalizeText(n.zeme);
+                        n.hrac.mimo = n.hrac.mimo || [];
+                        if (!n.hrac.mimo.some(x => normalizeText(x) === jm)) {
+                            n.hrac.mimo.push(n.zeme);
+                        }
+                        poOpraveVOkne();
+                    },
+                    "Dopíše " + n.zeme + " mezi lomítka u hráče " + n.jmeno + ".",
+                    () => ignoruj("utok", n), "utok"));
+            });
+        }
+
+        function vykresliDobyvani(kam, nalezy) {
+            const zk = (k) => window.DarkElfUtils.Spells.zkratka(k);
+            nalezy.forEach(n => {
+                const d = document.createElement("div");
+                d.style.cssText = "margin:1px 0;line-height:1.35;color:#ddd;";
+                if (n.id != null) d.appendChild(odkazNaMapu(n.id));
+                const t = document.createElement("span");
+                t.textContent = n.zeme + " " + zk(n.kouzlo) + " — "
+                    + ((n.duvod === "lomitka")
+                        ? ("je v // u " + n.hrac)
+                        : ("jde na ni útok " + cz(n.sila)
+                           + (n.utocnik ? (" od " + n.utocnik) : "")));
+                t.title = (n.duvod === "lomitka")
+                    ? ("Zem je mezi lomítky u hráče " + n.hrac + ", takže se na ni útočí "
+                       + "a po dobytí bude tvoje i s tím, co na ni teď sešleš.")
+                    : ("Podle seznamu útoků na ni jde dobyvačný útok o síle " + cz(n.sila)
+                       + (n.utocnik ? (" od " + n.utocnik) : "") + ", ale v `//` není."
+                       + "\nKdyž je to testovací útok, u kterého nepočítáš s úspěchem, "
+                       + "nech to být — červené kouzlo tam pak chceš.");
+                d.appendChild(t);
+                kam.appendChild(sAkcemi(d,
+                    () => {
+                        nahradKouzloNaZemi(n.radek, n.sekce, n.zeme, []);
+                        poOpraveVOkne();
+                    },
+                    "Smaže " + n.zeme + " z toho řádku. Ostatní země řádku zůstanou.",
+                    () => ignoruj("dobyvani", n), "dobyvani"));
+            });
         }
 
         function vykresliNesediHraci(kam, nalezy) {
@@ -6881,13 +7529,15 @@ if (!window.DarkElfUtils) {
                     nahradyVidene[klicNahrady] = true;
                     const zb = zbyvaKrokuNaOsach(n.radek, n.zeme, stav.cast, stav.idx);
                     if (!zb) return;
-                    const moznosti = nahradniKouzla(n.radek, zb);
+                    const moznosti = nahradniKouzla(n.radek, zb, cenaZRoletky);
 
                     const zbyvaMax = Math.max.apply(null, Object.keys(zb.osy).map(o => zb.osy[o]));
                     const nasobekRadku = n.radek.nasobek || 1;
 
                     const cilovyNasobek = Math.max(1, zbyvaMax);
-                    const lzeZmensit = !moznosti.length && cilovyNasobek < nasobekRadku;
+
+                    const lzeZmensit = !moznosti.length && zbyvaMax > 0
+                        && cilovyNasobek < nasobekRadku;
 
                     const lzeSmazat = zbyvaMax === 0;
                     if (!moznosti.length && !lzeZmensit && !lzeSmazat) return;
@@ -6921,7 +7571,8 @@ if (!window.DarkElfUtils) {
                     };
                     moznosti.forEach(m => {
                         oddel();
-                        v.appendChild(odkaz(nazevKouzel(m.kouzla) + " (" + m.cena + ")",
+                        v.appendChild(odkaz(nazevKouzel(m.kouzla)
+                            + " (" + (m.presna ? "" : "≈") + m.cena + ")",
                             "V listu u " + n.zeme + " nahradí " + puvodni + " tímhle. MO, priorita i SK zůstanou.",
                             "skala-nahrada", () => {
                                 nahradKouzloNaZemi(n.radek, n.sekce, n.zeme, m.kouzla);
@@ -7171,6 +7822,12 @@ if (!window.DarkElfUtils) {
             let cast = null;
             try { cast = await window.DarkElfUtils.SpellsCastAPI.fetch(true); } catch (er) { cast = null; }
 
+            let utoky = null;
+            try {
+                const a = await window.DarkElfUtils.AttacksAPI.fetch(true);
+                utoky = a ? window.DarkElfUtils.AttacksAPI.dobyvaneZeme(a) : null;
+            } catch (er) { utoky = null; }
+
             stav.sleva = sleva;
             stav.idx = idx;
             stav.idxId = idxId;
@@ -7178,6 +7835,7 @@ if (!window.DarkElfUtils) {
             stav.zeme = zeme;
             stav.hlavicka = hlavicka;
             stav.cast = cast;
+            stav.utoky = utoky;
 
             stav.mojeSK = mojeSKZeSeznamu(cast, hlavicka);
             konecMereni();
