@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Dark Elf - Magický správce
 // @namespace    https://github.com/goringardevang-alt/darkelf-magicky-spravce
-// @version      1.55
+// @version      1.56
 // @description  Magic list pro darkelf.cz: přečte ho, zkontroluje MO a šance podle tvé SK, naloží dávku do kouzlení, spočítá manu a hlídá, co se doopravdy seslalo. Vše v jednom souboru.
 // @author       Gorin & Claude Opus 5 (základ: Noxtrip)
 // @match        *://*.darkelf.cz/*
@@ -13,7 +13,7 @@
 // ==/UserScript==
 
 // ─────────────────────────────────────────────────────────────
-// Dark Elf - Magický správce v1.55   (Core Utils v2.41 uvnitř)
+// Dark Elf - Magický správce v1.56   (Core Utils v2.45 uvnitř)
 //
 // Základ: magický skript od Noxtripa.
 // Přepsal a rozšířil Claude Opus 5 ve spolupráci s Gorinem.
@@ -27,7 +27,7 @@ if (!window.DarkElfUtils) {
     'use strict';
 
     window.DarkElfUtils = {
-        VERSION: '2.33',
+        VERSION: '2.45',
 
         getLeague: function() {
             const isValid = (val) => val && val !== '0' && val.toLowerCase() !== 'default' && val !== '';
@@ -282,12 +282,40 @@ if (!window.DarkElfUtils) {
             "orcs":         { 1: { attack: 2, defence: 4 }, 2: { attack: 5, defence: 3 }, 3: { attack: 3, defence: 3 } },
             "uruks":        { 1: { attack: 3, defence: 3 }, 2: { attack: 7, defence: 1 }, 3: { attack: 5, defence: 3 } },
             "necromancers": { 1: { attack: 1, defence: 4 }, 2: { attack: 7, defence: 2 }, 3: { attack: 5, defence: 3 } },
-            "magi":         { 1: { attack: 2, defence: 5 }, 2: { attack: 7, defence: 2 }, 3: { attack: 3, defence: 5 } },
+            "magi":         { 1: { attack: 3, defence: 5 }, 2: { attack: 7, defence: 2 }, 3: { attack: 3, defence: 5 } },
             "elves":        { 1: { attack: 2, defence: 6 }, 2: { attack: 6, defence: 4 }, 3: { attack: 5, defence: 5 } },
             "dark elves":   { 1: { attack: 3, defence: 5 }, 2: { attack: 8, defence: 3 }, 3: { attack: 4, defence: 5 } },
             "dwarves":      { 1: { attack: 2, defence: 7 }, 2: { attack: 5, defence: 6 }, 3: { attack: 3, defence: 7 } },
             "hobbits":      { 1: { attack: 2, defence: 2 }, 2: { attack: 4, defence: 2 }, 3: { attack: 1, defence: 2 } },
             "ents":         { 1: { attack: 4, defence: 6 }, 2: { attack: 8, defence: 8 }, 3: { attack: 3, defence: 6 } }
+        },
+
+        UnitPrices: {
+            "men":          [[30, 0], [90, 7],   [150, 20]],
+            "barbarians":   [[40, 0], [100, 5],  [160, 20]],
+            "orcs":         [[30, 0], [160, 8],  [100, 30]],
+            "uruks":        [[50, 0], [130, 4],  [120, 30]],
+            "necromancers": [[10, 0], [0, 15],   [150, 15]],
+            "magi":         [[0, 5],  [0, 20],   [0, 15]],
+            "elves":        [[25, 0], [60, 8],   [100, 15]],
+            "dark elves":   [[30, 0], [50, 9],   [60, 10]],
+            "dwarves":      [[10, 0], [40, 2],   [200, 2]],
+            "hobbits":      [[22, 0], [100, 10], [100, 30]],
+            "ents":         [[20, 0], [90, 0],   [200, 0]]
+        },
+
+        UnitWages: {
+            "men":          [1, 5, 10],
+            "barbarians":   [2, 4, 11],
+            "orcs":         [2, 9, 14],
+            "uruks":        [2, 5, 15],
+            "necromancers": [1, 3, 10],
+            "magi":         [1, 6, 7],
+            "elves":        [1, 5, 9],
+            "dark elves":   [1, 5, 10],
+            "dwarves":      [1, 3, 9],
+            "hobbits":      [3, 10, 17],
+            "ents":         [0, 0, 0]
         },
 
         FortressMap: {
@@ -528,6 +556,7 @@ if (!window.DarkElfUtils) {
                 7: { cz: 'Mír',           key: 'peace' }
             },
             TREATY_MILITARY: 1,
+            TREATY_PASSAGE: 4,
             TREATY_WAR: 6,
 
             _nahrazovani: null,
@@ -1421,7 +1450,7 @@ if (!window.DarkElfUtils) {
             'Odražeč štítů':       { cena: 100,  typ: 'cervene', rasa: 'Temní elfové' },
             'Neovlivnitelnost':    { cena: 120,  typ: 'zlute',   rasa: 'Trpaslíci' },
             'Uzdravení':           { cena: 125,  typ: 'zlute',   rasa: 'Elfové' },
-            'Povodeň':             { cena: 300,  typ: 'cervene', rasa: 'Skřeti' },
+            'Povodeň':             { cena: 200,  typ: 'cervene', rasa: 'Skřeti' },
             'Zasypání':            { cena: 800,  typ: 'cervene', rasa: 'Mágové' },
             'Zmrtvýchvstání':      { cena: 1200, typ: 'zlute',   rasa: 'Nekromanti' }
         },
@@ -1835,9 +1864,39 @@ if (!window.DarkElfUtils) {
         });
     }
 
+    window.DarkElfUtils.HeroStaty = {
+        PLATNOST_MS: 10 * 60 * 1000,
+        _STRANKY: /(?:^|\/)(?:hero|artefacts_list)\.asp$/i,
+
+        get: function(id) {
+            return window.DarkElfUtils.Cache.get('heroStat', id);
+        },
+        set: function(id, h) {
+            return window.DarkElfUtils.Cache.set('heroStat', id, h, Date.now() + this.PLATNOST_MS);
+        },
+        zahod: function(id) {
+            if (id == null || id === '') return;
+            window.DarkElfUtils.Cache.set('heroStat', id, null);
+        },
+
+        idZAdresy: function(cesta, dotaz) {
+            if (!this._STRANKY.test(String(cesta || ''))) return null;
+            const m = String(dotaz || '').match(/[?&]h=(\d+)/i);
+            return m ? m[1] : null;
+        },
+
+        _priNacteni: function(okno) {
+            const id = this.idZAdresy(okno.location.pathname, okno.location.search);
+            if (id == null) return;
+            const self = this;
+            this.zahod(id);
+            okno.addEventListener('pagehide', function() { self.zahod(id); });
+        }
+    };
+
     async function nactiHrdinu(id) {
 
-        const zCache = window.DarkElfUtils.Cache.get('heroStat', id);
+        const zCache = window.DarkElfUtils.HeroStaty.get(id);
         if (zCache) return zCache;
 
         const doc = await window.DarkElfUtils.fetchPage('/hero.asp?h=' + id);
@@ -1879,7 +1938,7 @@ if (!window.DarkElfUtils) {
 
         if (!h.precteno) return null;
 
-        window.DarkElfUtils.Cache.set('heroStat', id, h);
+        window.DarkElfUtils.HeroStaty.set(id, h);
         return h;
     }
 
@@ -1987,6 +2046,9 @@ if (!window.DarkElfUtils) {
             }
         }
     }, true);
+
+    try { window.DarkElfUtils.HeroStaty._priNacteni(window); }
+    catch (e) { console.warn('DarkElfUtils.HeroStaty:', e); }
 
     try { window.DarkElfUtils.Prihlaseni._priNacteni(); }
     catch (e) { console.warn('DarkElfUtils.Prihlaseni:', e); }
@@ -4107,6 +4169,16 @@ if (!window.DarkElfUtils) {
         return out;
     }
 
+    function postupRadku(r, cast, zemeId, pozadavek) {
+        const nazvy = variantyRadku(r);
+        const proslo = ((cast && cast.kouzla) || []).filter(k =>
+            k.zemeId === zemeId && nazvy.indexOf(k.kouzlo) !== -1
+            && !(pozadavek > 0 && k.sila != null && !projdeObranou(k.sila, pozadavek, k.typ))).length;
+        const hotovo = r.hotovo || 0, nasobek = r.nasobek || 1;
+        const ted = Math.min(nasobek, Math.max(0, proslo - hotovo));
+        return { ted: ted, ceka: nasobek - ted, celkem: hotovo + nasobek };
+    }
+
     function slucOsy(nalezy) {
         const skupiny = {}, poradi = [];
         (nalezy || []).forEach(n => {
@@ -4135,8 +4207,12 @@ if (!window.DarkElfUtils) {
                 const pozadavek = (pozadavekZeme(r, jmeno) || { min: 0 }).min;
                 const dodano = dodaneKroky(cast, z.id, pozadavek);
 
+                const postup = postupRadku(r, cast, z.id, pozadavek);
+                if (!postup.ceka) return;
+
                 Object.keys(kroky).forEach(osa => {
-                    const pozadovano = kroky[osa] * (r.nasobek || 1);
+
+                    const pozadovano = kroky[osa] * postup.celkem;
                     const jizDodano = dodano.osy[osa];
 
                     if (dodano.drzi[osa]) {
@@ -4184,9 +4260,11 @@ if (!window.DarkElfUtils) {
                     const naSeslani = Math.abs(kroky[osa]) || 1;
                     const zbyvaSeslani = Math.sign(zbyvaKroku)
                         * Math.ceil(Math.abs(zbyvaKroku) / naSeslani);
-                    if (uzStaci || Math.abs(zbyvaSeslani) < (r.nasobek || 1)) {
+
+                    if (uzStaci || Math.abs(zbyvaSeslani) < postup.ceka) {
                         nalezy.push({ zeme: jmeno, id: z.id, kouzlo: r.kouzlo.nazev, osa: osa,
                                       druh: uzStaci ? "netreba" : "mene",
+                                      ceka: postup.ceka, vlastni: postup.ted,
                                       pozadovano: pozadovano, dodano: jizDodano,
                                       zdroje: dodano.zdroje.slice(),
                                       zbyva: uzStaci ? 0 : zbyvaSeslani, radek: r, sekce: sek,
@@ -4208,20 +4286,27 @@ if (!window.DarkElfUtils) {
         if (!z) return null;
         const pozadavek = (pozadavekZeme(r, jmeno) || { min: 0 }).min;
         const dodano = dodaneKroky(cast, z.id, pozadavek);
+        const postup = postupRadku(r, cast, z.id, pozadavek);
         const out = {};
         let smer = 0;
         const osy = Object.keys(kroky);
         for (let i = 0; i < osy.length; i++) {
             const osa = osy[i];
             if (dodano.drzi[osa]) return null;
-            const chce = kroky[osa] * (r.nasobek || 1);
+
+            const chce = kroky[osa] * postup.celkem;
             const uz = dodano.osy[osa] || 0;
             if (uz && (uz > 0) !== (chce > 0)) return null;
             smer = Math.sign(chce);
 
             out[osa] = (dodano.leci[osa] && chce < 0) ? 0 : Math.max(0, Math.abs(chce) - Math.abs(uz));
         }
-        return { smer: smer, osy: out };
+
+        let seslani = 0;
+        osy.forEach(o => {
+            seslani = Math.max(seslani, Math.ceil(out[o] / (Math.abs(kroky[o]) || 1)));
+        });
+        return { smer: smer, osy: out, vlastni: postup.ted, seslani: seslani };
     }
 
     function nahradniKouzla(r, zbyva, cenik) {
@@ -7503,8 +7588,9 @@ if (!window.DarkElfUtils) {
                     let co;
                     if (n.druh === "mene") {
 
-                        co = "stačí " + Math.abs(n.zbyva) + "× místo "
-                            + ((n.radek && n.radek.nasobek) || 1) + "×";
+                        const ceka = n.ceka || (n.radek && n.radek.nasobek) || 1;
+                        co = "stačí " + (n.vlastni ? "ještě " : "") + Math.abs(n.zbyva)
+                            + "× místo " + ceka + "×";
                     } else {
                         co = "netřeba";
                     }
@@ -7529,17 +7615,18 @@ if (!window.DarkElfUtils) {
                     nahradyVidene[klicNahrady] = true;
                     const zb = zbyvaKrokuNaOsach(n.radek, n.zeme, stav.cast, stav.idx);
                     if (!zb) return;
-                    const moznosti = nahradniKouzla(n.radek, zb, cenaZRoletky);
+
+                    const moznosti = zb.vlastni ? [] : nahradniKouzla(n.radek, zb, cenaZRoletky);
 
                     const zbyvaMax = Math.max.apply(null, Object.keys(zb.osy).map(o => zb.osy[o]));
                     const nasobekRadku = n.radek.nasobek || 1;
 
-                    const cilovyNasobek = Math.max(1, zbyvaMax);
+                    const cilovyNasobek = zb.vlastni + zb.seslani;
 
-                    const lzeZmensit = !moznosti.length && zbyvaMax > 0
-                        && cilovyNasobek < nasobekRadku;
+                    const lzeZmensit = !moznosti.length && cilovyNasobek >= 1
+                        && cilovyNasobek < nasobekRadku && (zbyvaMax > 0 || zb.vlastni > 0);
 
-                    const lzeSmazat = zbyvaMax === 0;
+                    const lzeSmazat = zbyvaMax === 0 && !zb.vlastni;
                     if (!moznosti.length && !lzeZmensit && !lzeSmazat) return;
 
                     const S = window.DarkElfUtils.Spells;
