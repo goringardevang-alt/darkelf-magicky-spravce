@@ -382,6 +382,7 @@ Skript si poradí s tím, jak píšou lidi. Tohle je zápis, do kterého to sjed
 | `nespo_MO20+: Alfa` | MO je aspoň 20 |
 | `nespo: Alfa (57),Beta (58)` | MO zvlášť pro každou zem |
 | `nespo_neu: Alfa` | neobsazená zem, které se MO **nepodařilo** spočítat — zjisti si ji sám |
+| `nespo_MO10_ent: Alfa` | v MO je i **magický háj** (+10 proti červeným kouzlům). **Píše to skript sám** při opravě MO. U tvých zemí háj pozná ze skutečných staveb; u entí země spojence, který si MO napsal sám (i `MO0`), háj nepřičítá; jinde ho u Entů předpokládá |
 | `nespo_SKmax: Alfa` | tohle chce **nejsilnější seslání, co aliance má** |
 | `Požeh_SK39+: Alfa` | sešli to **silou aspoň 39** — totéž, jen s číslem místo „co nejvíc". Čte se i `SK39`, `sk 39+`, `SK 39-50` (horní mez se zahodí). Kdo práh nesplní, vrací se do plánu |
 | `2×nespo (1 ze 2): Alfa` | z dvojitého seslání je hotové jedno. **Píše to skript sám**, ty to psát nemusíš |
