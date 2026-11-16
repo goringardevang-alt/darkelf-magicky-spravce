@@ -224,17 +224,27 @@ Pak se rozbalí nabídka ke schválení:
 
 > **Z formuláře — přidat do ML:**
 > do kategorie [ Prio 1 ▾ ]
-> ☑ spoko 2× · 3 zemí  [ 20 ]
-> ☑ spoko 2× · 1 zem   [ 55 ]
+> ☑ [ Spokojenost ▾ ] 2× · 3 zemí  [ 20 ]  ☐ SKmax
+> ☑ [ Spokojenost ▾ ] 2× · 1 zem   [ 55 ]  ☐ SKmax
 > **[ Přidat do ML ]**
 
 - **Kategorie** si vybereš z roletky (výchozí je Prio 1).
 - **Zaškrtávátkem** řádek vynecháš — hodí se, když jsi něco naklikal jen na zkoušku.
-- **Číslo vpravo** je MO, která se zapíše do listu. Je předvyplněná z mapy a dá
+- **Kouzlo** jde u řádku přepnout na **kterékoli**, i na rasové kouzlo jiné rasy,
+  které ve hře v nabídce nemáš. MO se pro nové kouzlo spočítá znovu.
+- **Číslo** je MO, která se zapíše do listu. Je předvyplněná z mapy a dá
   se přepsat; **prázdné pole = bez MO**, tedy požadavek 0.
+- **SKmax** zapíše řádek jako `_SKmax` — „sešli to nejsilnějším, co aliance má".
 - Najetím myší na řádek se ukáže, o které země jde.
 
 Do listu se to zapíše až tlačítkem **„Přidat do ML"**.
+
+**Kouzlo, které ve hře nemáš:** napiš jen země do herní buňky a klikni na **ML**
+s prázdnými K1…K5. Nabídka se otevře s „— kouzlo —" a kouzlo vybereš v ní.
+
+**SKmax u řádku, který už v listu je:** klikni v přehledu na název kouzla —
+v editoru řádku je zaškrtávátko **SKmax** hned za počtem seslání. Platí pro
+zaškrtnuté země, a když žádnou nezaškrtneš, pro celý řádek.
 
 ### Políčko MO vedle tlačítka
 
@@ -243,7 +253,7 @@ Malé políčko hned za **ML** zkracuje cestu:
 | Políčko | Co se stane |
 |---|---|
 | **prázdné** | MO se dopočítá z mapy a nabídne se ti ke kontrole (postup výš) |
-| **číslo** | řádky se s tou MO vloží do listu **rovnou, bez schvalování** |
+| **číslo** | řádky se s tou MO vloží do listu **rovnou, bez schvalování** (bez kouzla v K1…K5 se otevře nabídka s tou MO, kde kouzlo vybereš) |
 
 Číslo se použije **pro všechny napsané země najednou**, takže se hodí, když
 víš, že jsou na tom stejně — jinak nech políčko prázdné a nech si země rozdělit.
