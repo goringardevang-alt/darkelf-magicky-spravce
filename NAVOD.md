@@ -224,8 +224,8 @@ Pak se rozbalí nabídka ke schválení:
 
 > **Z formuláře — přidat do ML:**
 > do kategorie [ Prio 1 ▾ ]
-> ☑ [ Spokojenost ▾ ] 2× · 3 zemí  [ 20 ]  ☐ SKmax
-> ☑ [ Spokojenost ▾ ] 2× · 1 zem   [ 55 ]  ☐ SKmax
+> ☑ [ Spokojenost ▾ ] 2× · 3 zemí  [ 20 ]
+> ☑ [ Spokojenost ▾ ] 2× · 1 zem   [ 55 max ]
 > **[ Přidat do ML ]**
 
 - **Kategorie** si vybereš z roletky (výchozí je Prio 1).
@@ -234,7 +234,8 @@ Pak se rozbalí nabídka ke schválení:
   které ve hře v nabídce nemáš. MO se pro nové kouzlo spočítá znovu.
 - **Číslo** je MO, která se zapíše do listu. Je předvyplněná z mapy a dá
   se přepsat; **prázdné pole = bez MO**, tedy požadavek 0.
-- **SKmax** zapíše řádek jako `_SKmax` — „sešli to nejsilnějším, co aliance má".
+- **`max`** (nebo `top`) připsané do pole zapíše řádek jako `_SKmax` — „sešli to
+  nejsilnějším, co aliance má". Jde samotné i s číslem: `55 max`, `max 55`, `55max`.
 - Najetím myší na řádek se ukáže, o které země jde.
 
 Do listu se to zapíše až tlačítkem **„Přidat do ML"**.
@@ -242,9 +243,9 @@ Do listu se to zapíše až tlačítkem **„Přidat do ML"**.
 **Kouzlo, které ve hře nemáš:** napiš jen země do herní buňky a klikni na **ML**
 s prázdnými K1…K5. Nabídka se otevře s „— kouzlo —" a kouzlo vybereš v ní.
 
-**SKmax u řádku, který už v listu je:** klikni v přehledu na název kouzla —
-v editoru řádku je zaškrtávátko **SKmax** hned za počtem seslání. Platí pro
-zaškrtnuté země, a když žádnou nezaškrtneš, pro celý řádek.
+**SKmax u řádku, který už v listu je:** klikni v přehledu na název kouzla
+a v editoru řádku napiš `max` do pole MO u země (`75 max` nastaví i MO).
+Vyplněné pole zem samo zaškrtne.
 
 ### Políčko MO vedle tlačítka
 
@@ -254,9 +255,22 @@ Malé políčko hned za **ML** zkracuje cestu:
 |---|---|
 | **prázdné** | MO se dopočítá z mapy a nabídne se ti ke kontrole (postup výš) |
 | **číslo** | řádky se s tou MO vloží do listu **rovnou, bez schvalování** (bez kouzla v K1…K5 se otevře nabídka s tou MO, kde kouzlo vybereš) |
+| **`max`** | jako prázdné (MO z mapy), ale všechny řádky dostanou `_SKmax` |
+| **`75 max`** | jako číslo, a k tomu `_SKmax` |
 
 Číslo se použije **pro všechny napsané země najednou**, takže se hodí, když
 víš, že jsou na tom stejně — jinak nech políčko prázdné a nech si země rozdělit.
+
+### Tlačítko kontrola
+
+Za políčkem MO je tlačítko **kontrola**. Vezme země z herní buňky a napíše,
+které z nich **v listu nejsou** — „Mimo ML 3 z 10: …". Za zem v listu se bere
+každý řádek, i Zakouzleno; země, které jsou v listu jen jako útok u hráče
+(`/…/` v soupisce), vypíše zvlášť. Nic nekouzlí a list nemění.
+
+Hodí se, když si naklikáš celý balík zemí (třeba všechny jednoho hráče)
+a chceš vědět, co v listu chybí. Odkaz **„nechat v buňce jen tyhle"** pak
+v buňce nechá jen chybějící a tlačítkem **ML** je pošleš do listu.
 
 ---
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Dark Elf - Magický správce
 // @namespace    https://github.com/goringardevang-alt/darkelf-magicky-spravce
-// @version      1.64
+// @version      1.65
 // @description  Magic list pro darkelf.cz: přečte ho, zkontroluje MO a šance podle tvé SK, naloží dávku do kouzlení, spočítá manu a hlídá, co se doopravdy seslalo. Vše v jednom souboru.
 // @author       Gorin & Claude Opus 5 (základ: Noxtrip)
 // @match        *://*.darkelf.cz/*
@@ -13,7 +13,7 @@
 // ==/UserScript==
 
 // ─────────────────────────────────────────────────────────────
-// Dark Elf - Magický správce v1.64   (Core Utils v2.49 uvnitř)
+// Dark Elf - Magický správce v1.65   (Core Utils v2.49 uvnitř)
 //
 // Základ: magický skript od Noxtripa.
 // Přepsal a rozšířil Claude Opus 5 ve spolupráci s Gorinem.
@@ -4284,6 +4284,35 @@ if (!window.DarkElfUtils) {
                  zbude: (cena != null && mana != null) ? (mana - cena) : null };
     }
 
+    function ctiPoleMO(text) {
+        let t = String(text == null ? "" : text).trim();
+        const MAX_RE = /(?:sk\s*)?(?:max|top|nejvy[sš][sš][ií])/ig;
+        const skmax = MAX_RE.test(t);
+        t = t.replace(MAX_RE, " ").replace(/[\s_,;]+/g, " ").trim();
+        if (!t) return { mo: "", skmax: skmax, prazdne: !skmax, platne: true };
+        const m = t.match(/^(?:mo\s*)?(\d+)(\+)?$/i);
+        if (!m) return { mo: "", skmax: skmax, prazdne: false, platne: false };
+        return { mo: "MO" + m[1] + (m[2] || ""), skmax: skmax, prazdne: false, platne: true };
+    }
+
+    function zemeMimoML(data, jmena) {
+        const vRadcich = {}, vUtoku = {};
+        ((data && data.sekce) || []).forEach(sek => (sek.radky || []).forEach(r =>
+            (r.zeme || []).forEach(z => { vRadcich[normalizeText(z)] = true; })));
+        ((data && data.hraci) || []).forEach(h =>
+            (h.mimo || []).forEach(z => { vUtoku[normalizeText(z)] = true; }));
+        const out = { mimo: [], vML: [], utok: [] }, videno = {};
+        (jmena || []).forEach(j => {
+            const k = normalizeText(j);
+            if (!k || videno[k]) return;
+            videno[k] = true;
+            if (vRadcich[k]) out.vML.push(j);
+            else if (vUtoku[k]) out.utok.push(j);
+            else out.mimo.push(j);
+        });
+        return out;
+    }
+
     function navrhZFormulare(kouzla, zeme, idx) {
         const out = [];
 
@@ -7511,19 +7540,6 @@ if (!window.DarkElfUtils) {
             return sel;
         }
 
-        function zaskrtSKmax(zapnuto) {
-            const obal = document.createElement("label");
-            obal.style.cssText = "margin-left:6px;cursor:pointer;white-space:nowrap;color:#bbb;";
-            obal.title = "Pošli to nejsilnější SK, co aliance má (v listu _SKmax).";
-            const vstup = document.createElement("input");
-            vstup.type = "checkbox";
-            vstup.checked = !!zapnuto;
-            vstup.style.cssText = "vertical-align:middle;margin:0 2px 0 0;";
-            obal.appendChild(vstup);
-            obal.appendChild(document.createTextNode("SKmax"));
-            return { obal: obal, vstup: vstup };
-        }
-
         function zmenKouzloNavrhu(n, nazev) {
             const S = window.DarkElfUtils.Spells;
             const navrhy = stav.zFormulare || [];
@@ -7548,7 +7564,9 @@ if (!window.DarkElfUtils) {
         function vykresliZFormulare() {
             const navrhy = stav.zFormulare;
             const blok = document.createElement("div");
-            blok.style.cssText = "margin:2px 0 6px 0;padding-bottom:4px;border-bottom:1px solid #553311;";
+
+            blok.style.cssText = "margin:2px 0 6px 0;padding-bottom:4px;border-bottom:1px solid #553311;"
+                + "max-width:100%;box-sizing:border-box;overflow-x:hidden;";
 
             const nadpis = document.createElement("div");
             nadpis.style.cssText = "color:#cc9944;";
@@ -7559,7 +7577,7 @@ if (!window.DarkElfUtils) {
             radekKat.style.cssText = "margin:2px 0;color:#999;";
             radekKat.appendChild(document.createTextNode("do kategorie "));
             const vyberKat = document.createElement("select");
-            vyberKat.style.cssText = "font-size:10px;border:1px solid #553311;" + ROLETKA_STYL;
+            vyberKat.style.cssText = "font-size:10px;border:1px solid #553311;max-width:130px;" + ROLETKA_STYL;
             KAT_PEVNE.forEach(k => {
                 const o = document.createElement("option");
                 o.value = k; o.textContent = k;
@@ -7597,20 +7615,18 @@ if (!window.DarkElfUtils) {
                 const pole = document.createElement("input");
                 pole.type = "text";
                 pole.size = 5;
-                pole.value = (n.moText != null) ? n.moText : String(n.mo || "").replace(/^MO/, "");
-                pole.title = "MO, která se zapíše do listu. Prázdné = bez MO (požadavek 0).";
+
+                pole.value = (n.moText != null) ? n.moText
+                    : (String(n.mo || "").replace(/^MO/, "") + (n.skmax ? " max" : "")).trim();
+                pole.title = "MO, která se zapíše do listu. Prázdné = bez MO (požadavek 0)."
+                    + " Připiš „max\" nebo „top\" = SKmax (75 max).";
                 pole.setAttribute("data-akce", "zf-mo");
-                pole.style.cssText = "width:36px;font-size:10px;background:transparent;"
+                pole.style.cssText = "width:44px;font-size:10px;background:transparent;"
                     + "color:#ddd;border:1px solid #553311;";
                 pole.oninput = () => { n.moText = pole.value; };
                 r.appendChild(pole);
 
-                const skmax = zaskrtSKmax(!!n.skmax);
-                skmax.vstup.setAttribute("data-akce", "zf-skmax");
-                skmax.vstup.onchange = () => { n.skmax = skmax.vstup.checked; };
-                r.appendChild(skmax.obal);
-
-                vyber.push({ navrh: n, zaskrt: zaskrt, pole: pole, skmax: skmax.vstup });
+                vyber.push({ navrh: n, zaskrt: zaskrt, pole: pole });
                 blok.appendChild(r);
             });
 
@@ -7633,13 +7649,12 @@ if (!window.DarkElfUtils) {
                 const cil = stav.data.sekce[0] || (stav.data.sekce[0] = { nazev: "", radky: [] });
                 vyber.forEach(v => {
                     if (!v.zaskrt.checked) return;
-                    const zadano = v.pole.value.trim();
-                    const m = zadano.match(/^(?:mo\s*)?(\d+)(\+)?$/i);
+                    const zadano = ctiPoleMO(v.pole.value);
                     cil.radky.push({
                         kouzlo: window.DarkElfUtils.Spells.byName(v.navrh.kouzlo),
-                        mo: m ? ("MO" + m[1] + (m[2] || "")) : "",
+                        mo: zadano.mo,
                         poznamka: "", kat: kat, nasobek: v.navrh.nasobek, prio: false,
-                        skmax: v.skmax.checked,
+                        skmax: zadano.skmax,
                         zeme: v.navrh.zeme.slice()
                     });
                 });
@@ -7745,10 +7760,6 @@ if (!window.DarkElfUtils) {
             krat.textContent = "×";
             krat.style.cssText = "vertical-align:middle;margin-left:2px;";
             radekKouzla.appendChild(krat);
-
-            const skmaxVolba = zaskrtSKmax(!!rucni.skmax);
-            skmaxVolba.vstup.setAttribute("data-akce", "skmax-radek");
-            radekKouzla.appendChild(skmaxVolba.obal);
             blok.appendChild(radekKouzla);
 
             const vyber = [];
@@ -7773,7 +7784,8 @@ if (!window.DarkElfUtils) {
                 pole.type = "text";
                 pole.size = 3;
                 pole.placeholder = (rucni.mo || "MO0").replace(/^MO/, "");
-                pole.title = "Vlastní MO — jen číslo. Plus na konci (5+) znamená aspoň 5. Prázdné = nechat být.";
+                pole.title = "Vlastní MO — číslo. Plus na konci (5+) znamená aspoň 5."
+                    + " „max\" nebo „top\" = SKmax (i samotné, nebo 75 max). Prázdné = nechat být.";
                 pole.setAttribute("data-akce", "mo-zeme");
                 pole.style.cssText = "width:26px;font-size:10px;margin-left:3px;"
                     + "background:transparent;color:#ddd;border:1px solid #553311;";
@@ -7822,8 +7834,8 @@ if (!window.DarkElfUtils) {
             const tlacZmena = document.createElement("button");
             tlacZmena.className = "butt_sml";
             tlacZmena.setAttribute("data-akce", "pouzit");
-            tlacZmena.title = "Přepíše kouzlo, počet seslání a SKmax a zároveň MO u zemí, "
-                + "kde je políčko vyplněné. Bez zaškrtnutí platí změna kouzla "
+            tlacZmena.title = "Přepíše kouzlo i počet seslání a zároveň MO (a max = SKmax) "
+                + "u zemí, kde je políčko vyplněné. Bez zaškrtnutí platí změna kouzla "
                 + "pro celý řádek.";
             tlacZmena.style.cssText = "margin:4px 4px 2px 0;padding:3px 8px;cursor:pointer;";
 
@@ -7836,39 +7848,43 @@ if (!window.DarkElfUtils) {
             tlacZmena.onclick = (ev) => {
                 ev.preventDefault();
 
-                const nalezy = [];
+                const nalezy = [], sMax = [];
                 vyber.forEach(v => {
                     if (!v.zaskrt.checked) return;
-                    const rucneText = v.pole.value.trim();
-                    if (!rucneText) return;
-                    const m = rucneText.match(/^(?:mo\s*)?(\d+)(\+)?$/i);
-                    if (!m) return;
+                    const zadano = ctiPoleMO(v.pole.value);
+                    if (zadano.prazdne || !zadano.platne) return;
+                    if (zadano.skmax) sMax.push(v.zeme);
+                    if (!zadano.mo) return;
                     const kde = najdiRadekZeme(stav.data, rucni.kouzlo.nazev, v.zeme);
                     if (!kde) return;
                     nalezy.push({ zeme: v.zeme, radek: kde.radek, sekce: kde.sekce,
-                                  navrh: "MO" + m[1] + (m[2] || "") });
+                                  navrh: zadano.mo });
                 });
                 if (nalezy.length) opravMO(nalezy);
+                const maxZmeny = [];
+                sMax.forEach(jmeno => {
+                    const kde = najdiRadekZeme(stav.data, rucni.kouzlo.nazev, jmeno);
+                    if (!kde || kde.radek.skmax) return;
+                    maxZmeny.push({ zeme: jmeno, radek: kde.radek, sekce: kde.sekce, skmax: true });
+                });
+                if (maxZmeny.length) presunZeme(maxZmeny);
 
                 const noveKouzlo = S.byName(volbaKouzla.value);
                 const cislo = parseInt(poleNasobek.value, 10);
                 const novyNasobek = (cislo > 0) ? cislo : 1;
-                const novySKmax = skmaxVolba.vstup.checked;
                 const zmeny = [];
                 ktereZeme().forEach(jmeno => {
                     const kde = najdiRadekZeme(stav.data, rucni.kouzlo.nazev, jmeno);
                     if (!kde) return;
 
                     if ((!noveKouzlo || noveKouzlo.nazev === kde.radek.kouzlo.nazev)
-                        && novyNasobek === (kde.radek.nasobek || 1)
-                        && novySKmax === !!kde.radek.skmax) return;
+                        && novyNasobek === (kde.radek.nasobek || 1)) return;
                     zmeny.push({ zeme: jmeno, radek: kde.radek, sekce: kde.sekce,
-                                 kouzlo: noveKouzlo || kde.radek.kouzlo, nasobek: novyNasobek,
-                                 skmax: novySKmax });
+                                 kouzlo: noveKouzlo || kde.radek.kouzlo, nasobek: novyNasobek });
                 });
                 if (zmeny.length) presunZeme(zmeny);
 
-                if (!nalezy.length && !zmeny.length) return;
+                if (!nalezy.length && !maxZmeny.length && !zmeny.length) return;
                 zmenaDat();
                 stav.rucni = null;
                 prekresliPoUprave();
@@ -8606,8 +8622,8 @@ if (!window.DarkElfUtils) {
 
         function rucniMOZPole() {
             const pole = document.getElementById("ml_mo");
-            const m = String((pole && pole.value) || "").trim().match(/^(?:mo\s*)?(\d+)(\+)?$/i);
-            return m ? ("MO" + m[1] + (m[2] || "")) : null;
+            const v = ctiPoleMO(pole && pole.value);
+            return (v.prazdne || !v.platne) ? null : v;
         }
 
         async function nabidniZFormulare() {
@@ -8624,10 +8640,13 @@ if (!window.DarkElfUtils) {
 
             const bezKouzla = !kouzla.length;
 
-            const rucniMO = rucniMOZPole();
+            const zPole = rucniMOZPole();
+            const rucniMO = (zPole && zPole.mo) || null;
+            const skmaxVse = !!(zPole && zPole.skmax);
             if (rucniMO && bezKouzla) {
                 stav.zFormulare = [{ kouzlo: null, typ: null, nasobek: 1, mo: rucniMO,
-                                     rucniMO: rucniMO, zeme: zeme.slice(), skupina: 0 }];
+                                     rucniMO: rucniMO, zeme: zeme.slice(), skupina: 0,
+                                     skmax: skmaxVse }];
                 stavKouzleni.textContent = "";
                 telo.style.display = "block";
                 hlavicka.textContent = "▾ Přehled magic listu";
@@ -8643,7 +8662,7 @@ if (!window.DarkElfUtils) {
                 kouzla.forEach(k => {
                     cil.radky.push({
                         kouzlo: window.DarkElfUtils.Spells.byName(k.nazev),
-                        mo: rucniMO, poznamka: "", kat: KAT_VYCHOZI,
+                        mo: rucniMO, poznamka: "", kat: KAT_VYCHOZI, skmax: skmaxVse,
                         nasobek: k.nasobek, prio: false, zeme: zeme.slice()
                     });
                 });
@@ -8664,9 +8683,43 @@ if (!window.DarkElfUtils) {
                 : "Mapa se nenačetla — MO doplň ručně.";
             stav.zFormulare = navrhZFormulare(
                 bezKouzla ? [{ nazev: null, typ: null, nasobek: 1 }] : kouzla, zeme, stav.idx);
+            if (skmaxVse) stav.zFormulare.forEach(n => { n.skmax = true; });
             telo.style.display = "block";
             hlavicka.textContent = "▾ Přehled magic listu";
             vykresli();
+        }
+
+        function ukazMimoML() {
+            const ta = document.getElementById("textAreaMagic");
+            const zeme = parseLands(ta ? ta.value : "");
+            stavKouzleni.style.display = "block";
+            stavKouzleni.textContent = "";
+            if (!zeme.length) { stavKouzleni.textContent = "V herní buňce nejsou žádné země."; return; }
+            if (!stav.data) { stavKouzleni.textContent = "Nejdřív načti ML (Přechroustat)."; return; }
+            const v = zemeMimoML(stav.data, zeme);
+            const celkem = v.mimo.length + v.vML.length + v.utok.length;
+            const hlava = document.createElement("div");
+            hlava.setAttribute("data-akce", "mimo-ml-vysledek");
+            hlava.textContent = v.mimo.length
+                ? ("Mimo ML " + v.mimo.length + " z " + celkem + ": " + v.mimo.join(", "))
+                : ("Všech " + celkem + " zemí v ML je.");
+            hlava.style.cssText = "color:" + (v.mimo.length ? "#ffcc66" : "#88bb66") + ";";
+            stavKouzleni.appendChild(hlava);
+            if (v.utok.length) {
+                const u = document.createElement("div");
+                u.style.cssText = "color:#999;";
+                u.textContent = "jen jako útok u hráče: " + v.utok.join(", ");
+                stavKouzleni.appendChild(u);
+            }
+            if (v.mimo.length && v.mimo.length < celkem) {
+                const a = document.createElement("a");
+                a.href = "#";
+                a.setAttribute("data-akce", "mimo-ml-nechat");
+                a.textContent = "nechat v buňce jen tyhle";
+                a.style.cssText = "color:#cc9944;text-decoration:underline dotted;";
+                a.onclick = (ev) => { ev.preventDefault(); nalozZeme(v.mimo, stav.idx); };
+                stavKouzleni.appendChild(a);
+            }
         }
 
         (function pridejTlacitkoML() {
@@ -8689,12 +8742,28 @@ if (!window.DarkElfUtils) {
             mo.size = 3;
             mo.placeholder = "MO";
             mo.title = "MO pro všechny napsané země. Číslo → vloží se do ML rovnou,"
-                + " bez schvalování. Prázdné → MO se dopočítá z mapy a nabídne ke kontrole.";
+                + " bez schvalování. Prázdné → MO se dopočítá z mapy a nabídne ke kontrole."
+                + " „max\" / „top\" = SKmax pro všechno (samotné: MO z mapy; 75 max: rovnou).";
             mo.style.cssText = "width:34px;margin-left:4px;font-size:11px;text-align:center;"
                 + "background:transparent;color:#ddd;border:1px solid #553311;";
             b.parentNode.insertBefore(mo, b.nextSibling);
 
-            herni.parentNode.insertBefore(stavKouzleni, mo.nextSibling);
+            const mimo = document.createElement("input");
+            mimo.type = "button";
+            mimo.id = "ml_mimo";
+            mimo.className = herni.className || "butt_sml";
+            mimo.value = "kontrola";
+            mimo.title = "Kontrola: které země z herní buňky v magic listu nejsou. Nic nesesílá ani nemění.";
+            mimo.style.cssText = "margin-bottom:6px;margin-left:4px;padding:4px 6px;cursor:pointer;";
+            mimo.onclick = (e) => { e.preventDefault(); ukazMimoML(); };
+            mo.parentNode.insertBefore(mimo, mo.nextSibling);
+
+            herni.parentNode.insertBefore(stavKouzleni, mimo.nextSibling);
+
+            ["cb_my_lands", "cb_enemy_lands", "cb_vladce"].forEach(id => {
+                const sel = document.getElementById(id);
+                if (sel) sel.style.maxWidth = "200px";
+            });
 
             for (let i = 1; i <= 5; i++) {
                 const sel = document.getElementById("K" + i);
