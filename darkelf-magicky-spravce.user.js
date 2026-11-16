@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Dark Elf - Magický správce
 // @namespace    https://github.com/goringardevang-alt/darkelf-magicky-spravce
-// @version      1.65
+// @version      1.66
 // @description  Magic list pro darkelf.cz: přečte ho, zkontroluje MO a šance podle tvé SK, naloží dávku do kouzlení, spočítá manu a hlídá, co se doopravdy seslalo. Vše v jednom souboru.
 // @author       Gorin & Claude Opus 5 (základ: Noxtrip)
 // @match        *://*.darkelf.cz/*
@@ -13,7 +13,7 @@
 // ==/UserScript==
 
 // ─────────────────────────────────────────────────────────────
-// Dark Elf - Magický správce v1.65   (Core Utils v2.49 uvnitř)
+// Dark Elf - Magický správce v1.66   (Core Utils v2.49 uvnitř)
 //
 // Základ: magický skript od Noxtripa.
 // Přepsal a rozšířil Claude Opus 5 ve spolupráci s Gorinem.
@@ -7549,9 +7549,10 @@ if (!window.DarkElfUtils) {
             const zeme = [];
             stejne.forEach(x => x.zeme.forEach(z => { if (zeme.indexOf(z) === -1) zeme.push(z); }));
             const k = { nazev: nazev, typ: info.typ, nasobek: n.nasobek || 1 };
-            const nove = n.rucniMO
-                ? [{ kouzlo: nazev, typ: info.typ, nasobek: k.nasobek, mo: n.rucniMO,
-                     rucniMO: n.rucniMO, zeme: zeme }]
+
+            const nove = n.pevne
+                ? [{ kouzlo: nazev, typ: info.typ, nasobek: k.nasobek, mo: n.mo,
+                     pevne: true, zeme: zeme }]
                 : navrhZFormulare([k], zeme, stav.idx);
             nove.forEach(x => { x.skupina = n.skupina; x.skmax = !!n.skmax; });
             const kde = navrhy.indexOf(stejne[0]);
@@ -8641,11 +8642,11 @@ if (!window.DarkElfUtils) {
             const bezKouzla = !kouzla.length;
 
             const zPole = rucniMOZPole();
-            const rucniMO = (zPole && zPole.mo) || null;
+            const rucniMO = zPole ? zPole.mo : "";
             const skmaxVse = !!(zPole && zPole.skmax);
-            if (rucniMO && bezKouzla) {
+            if (zPole && bezKouzla) {
                 stav.zFormulare = [{ kouzlo: null, typ: null, nasobek: 1, mo: rucniMO,
-                                     rucniMO: rucniMO, zeme: zeme.slice(), skupina: 0,
+                                     pevne: true, zeme: zeme.slice(), skupina: 0,
                                      skmax: skmaxVse }];
                 stavKouzleni.textContent = "";
                 telo.style.display = "block";
@@ -8653,7 +8654,7 @@ if (!window.DarkElfUtils) {
                 vykresli();
                 return;
             }
-            if (rucniMO) {
+            if (zPole) {
                 if (!stav.data) {
                     stav.data = { hlavicka: null, nejista: [], nezarazeno: [], hraci: [],
                                   sekce: [{ nazev: "", radky: [] }] };
@@ -8683,7 +8684,6 @@ if (!window.DarkElfUtils) {
                 : "Mapa se nenačetla — MO doplň ručně.";
             stav.zFormulare = navrhZFormulare(
                 bezKouzla ? [{ nazev: null, typ: null, nasobek: 1 }] : kouzla, zeme, stav.idx);
-            if (skmaxVse) stav.zFormulare.forEach(n => { n.skmax = true; });
             telo.style.display = "block";
             hlavicka.textContent = "▾ Přehled magic listu";
             vykresli();

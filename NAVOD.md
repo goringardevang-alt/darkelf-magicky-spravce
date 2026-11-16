@@ -255,7 +255,7 @@ Malé políčko hned za **ML** zkracuje cestu:
 |---|---|
 | **prázdné** | MO se dopočítá z mapy a nabídne se ti ke kontrole (postup výš) |
 | **číslo** | řádky se s tou MO vloží do listu **rovnou, bez schvalování** (bez kouzla v K1…K5 se otevře nabídka s tou MO, kde kouzlo vybereš) |
-| **`max`** | jako prázdné (MO z mapy), ale všechny řádky dostanou `_SKmax` |
+| **`max`** | jako číslo, ale **bez MO** — řádky se vloží jen s `_SKmax` |
 | **`75 max`** | jako číslo, a k tomu `_SKmax` |
 
 Číslo se použije **pro všechny napsané země najednou**, takže se hodí, když
